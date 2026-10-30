@@ -53,7 +53,7 @@ async function loadSession(identity,user){
   const resume=document.querySelector('#cloud-resume');if(resume)resume.onclick=async()=>{try{session.resume(loaded.drafts[0]);await launch(loaded.drafts[0].project);}catch{showError('Could not resume the saved draft. Download a backup and try again.');}};
   document.querySelector('#cloud-discard').onclick=async()=>{if(!confirm('Discard the unsent drafts in this browser? Download any backup you need first.'))return;for(const draft of loaded.drafts)session.discardDraft(draft.key);await launch(loaded.remote);};
 }
-function cloudStatus(status){return ({loading:'Opening cloud project',ready:'Cloud ready',saving:'Saving to cloud…',saved:'Saved to cloud',offline:'Offline · changes not synced',conflict:'Conflict · export backup and reload',error:'Sync failed · retry or export backup'})[status.state]||'Cloud status unavailable';}
+function cloudStatus(status){return status.state==='error'&&/^\d{3}$/.test(status.detail||'')?`Sync failed (HTTP ${status.detail}) · retry or export backup`:({loading:'Opening cloud project',ready:'Cloud ready',saving:'Saving to cloud…',saved:'Saved to cloud',offline:'Offline · changes not synced',conflict:'Conflict · export backup and reload',error:'Sync failed · retry or export backup'})[status.state]||'Cloud status unavailable';}
 if(local)await goApp();else{
   try{const path='/identity-bundle.js';await runCloud(await import(path));}
   catch{screen('Cloud sign-in unavailable','Your project was not opened or changed. Please try again later.','<button class="button" id="cloud-reload">Try again</button>');document.querySelector('#cloud-reload').onclick=()=>location.reload();}

@@ -42,7 +42,7 @@ function save() {
 }
 function notify(message){ const el=document.querySelector('#toast'); el.textContent=message; el.classList.add('show'); clearTimeout(notify.timer); notify.timer=setTimeout(()=>el.classList.remove('show'),2600); }
 function commit(message='Saved on this device') { if(save()){ render(); notify(cloud?'Saving to cloud…':message); return true; } render(); return false; }
-const cloudLabel=status=>({loading:'Opening cloud project',ready:'Cloud ready',saving:'Saving to cloud…',saved:'Saved to cloud',offline:'Offline · changes not synced',conflict:'Conflict · export backup and reload',error:'Sync failed · retry or export backup'})[status?.state]||'Cloud status unavailable';
+const cloudLabel=status=>status?.state==='error'&&/^\d{3}$/.test(status.detail||'')?`Sync failed (HTTP ${status.detail}) · retry or export backup`:({loading:'Opening cloud project',ready:'Cloud ready',saving:'Saving to cloud…',saved:'Saved to cloud',offline:'Offline · changes not synced',conflict:'Conflict · export backup and reload',error:'Sync failed · retry or export backup'})[status?.state]||'Cloud status unavailable';
 function heading(kicker,title,sub,action=''){return `<div class="page-heading"><div><div class="eyebrow">${kicker}</div><h1>${title}</h1><p class="muted">${sub}</p></div>${action}</div>`;}
 const nav=[['home','⌂','Home'],['checklist','☑','Checklist'],['budget','▤','Budget'],['quotes','⇄','Quotations'],['appliances','▧','Appliances'],['receipts','▣','Receipts'],['myhome','⚙','My home'],['guide','✧','Guide'],['seller','♧','Seller codes'],['more','☰','More']];
 const mobileNav=nav.filter(([id])=>['home','checklist','budget','quotes','more'].includes(id));
