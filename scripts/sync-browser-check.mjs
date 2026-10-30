@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 const origin='http://app.localhost:4173';
 for(let i=0;i<50;i++){try{const r=await fetch('http://127.0.0.1:4173/');if(r.ok)break;}catch{}await new Promise(r=>setTimeout(r,100));if(i===49)throw Error('Local test server did not start');}
 let version=0,project=null;
-const identity=`export async function handleAuthCallback(){return null} export async function getUser(){return sessionStorage.getItem('signed-in')?{id:'test-user',email:'test@example.com'}:null} export async function login(){sessionStorage.setItem('signed-in','yes');return {id:'test-user',email:'test@example.com'}} export async function logout(){sessionStorage.removeItem('signed-in')} export async function acceptInvite(){throw Error('not used')} export async function updateUser(){throw Error('not used')}`;
+const identity=`export async function handleAuthCallback(){return location.hash==='#fake-recovery'?{type:'recovery'}:null} export async function getUser(){return sessionStorage.getItem('signed-in')?{id:'test-user',email:'test@example.com'}:null} export async function login(){sessionStorage.setItem('signed-in','yes');return {id:'test-user',email:'test@example.com'}} export async function logout(){sessionStorage.removeItem('signed-in')} export async function acceptInvite(){throw Error('not used')} export async function updateUser({password}){sessionStorage.setItem('test-reset-password',password);sessionStorage.setItem('signed-in','yes')} export async function requestPasswordRecovery(email){sessionStorage.setItem('test-reset-email',email)}`;
 const browser=await chromium.launch({headless:true});
 async function context(){
   const ctx=await browser.newContext();
@@ -31,6 +31,7 @@ async function login(page){await page.goto(origin);await page.getByLabel('Email'
 try{
   const first=await context(),page=await first.newPage();await login(page);
   await page.getByRole('button',{name:'More',exact:true}).click();page.on('dialog',d=>d.accept());
+  await page.getByRole('button',{name:'Send password reset email'}).click();assert.equal(await page.evaluate(()=>sessionStorage.getItem('test-reset-email')),'test@example.com');
   const data={version:1,project:{name:'Example project',type:'',location:'',currency:'MYR',target:100000,reserve:0,savings:0,savingsDate:'',moveIn:''},costs:[{id:'floor',name:'Floor',category:'Renovation',status:'estimated',amount:1000,room:'Hall',phase:'1'}],payments:[],quotes:[],tasks:[],receipts:[],sellerCodes:[],paymentCorrections:[]};
   await page.locator('#import-file').setInputFiles({name:'example-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(data))});
   await page.getByText('Saved to cloud',{exact:true}).waitFor();assert.equal(project.project.name,'Example project');
@@ -40,5 +41,6 @@ try{
   await page.getByRole('button',{name:'Edit amount for Floor'}).click();await page.getByLabel('Amount for Floor').fill('20.00');await page.getByLabel('Amount for Floor').press('Enter');await page.getByText('Saved to cloud',{exact:true}).waitFor();assert.equal(project.costs[0].amount,2000);
   await other.getByRole('button',{name:'Edit amount for Floor'}).click();await other.getByLabel('Amount for Floor').fill('30.00');await other.getByLabel('Amount for Floor').press('Enter');await other.getByText('Conflict · export backup and reload',{exact:true}).waitFor();assert.equal(project.costs[0].amount,2000);
   await other.reload();await other.getByText('Unsent changes found',{exact:true}).waitFor();assert.equal(await other.getByRole('button',{name:'Resume unsent changes'}).count(),0);
-  await first.close();await second.close();console.log('Browser sync smoke test passed with simulated identity and storage.');
+  const recovery=await context(),reset=await recovery.newPage();await reset.goto(origin+'/#fake-recovery');await reset.getByLabel('New password').fill('sample-password');await reset.getByRole('button',{name:'Update password'}).click();await reset.getByText('Cloud ready',{exact:true}).waitFor();assert.equal(await reset.evaluate(()=>sessionStorage.getItem('test-reset-password')),'sample-password');
+  await first.close();await second.close();await recovery.close();console.log('Browser sync and recovery smoke tests passed with simulated identity and storage.');
 }finally{await browser.close();}

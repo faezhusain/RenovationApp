@@ -24,8 +24,8 @@ const actions={checklist:['task'],budget:['cost','payment'],quotes:['quote'],rec
   try{
     for(const [width,height] of [[320,640],[375,667],[390,844],[430,932],[700,500],[844,390],[896,414]]){
       const ctx=await browser.newContext({viewport:{width,height},deviceScaleFactor:1,hasTouch:true,isMobile:true});
-      await ctx.addInitScript(({data,status})=>{window.renovationCloud={mode:'cloud',status,initialProject:data,session:{stage(){},hasDraft(){return false},retry(){}},identity:{logout:async()=>{}}};},{data:project,status:width===320?{state:'error',detail:'428'}:{state:'ready'}});
-      const page=await ctx.newPage();const errors=[];page.on('pageerror',err=>errors.push(err.message));
+      await ctx.addInitScript(({data,status})=>{window.renovationCloud={mode:'cloud',email:'example@example.com',status,initialProject:data,session:{stage(){},hasDraft(){return false},retry(){}},identity:{logout:async()=>{},requestPasswordRecovery:async email=>{window.resetRequestedFor=email}}};},{data:project,status:width===320?{state:'error',detail:'428'}:{state:'ready'}});
+      const page=await ctx.newPage();const errors=[];page.on('pageerror',err=>errors.push(err.message));page.on('dialog',dialog=>dialog.accept());
       await page.goto(`http://127.0.0.1:${server.address().port}/`);
       for(const [id,title] of pages){
         if(id==='home'){} // The app opens on Home.
@@ -46,19 +46,38 @@ const actions={checklist:['task'],budget:['cost','payment'],quotes:['quote'],rec
           await dialog.locator('[data-action="close"]').first().click();
         }
         if(id==='budget'){
+          if(process.env.MOBILE_SCREENSHOTS&&width===390){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,'budget-top.png')});}
           assert.equal(await page.locator('.budget-table tbody tr').count(),2);
           const dims=await page.locator('.budget-table').evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));assert.ok(dims.scroll<=dims.width+1,`${width}px budget rows overflow`);
-          await page.locator('#phase-filter').selectOption('1');assert.equal(await page.locator('.budget-table tbody tr').count(),1);
+          const search=page.getByRole('searchbox',{name:'Search budget items'});
+          await search.fill('KITCHEN');assert.equal(await page.locator('.budget-table tbody tr').count(),1);assert.ok(await search.evaluate(el=>document.activeElement===el));
+          assert.ok((await page.locator('.budget-total').textContent()).includes('5,000'));
+          assert.ok(await page.locator('.budget-results-heading').getByText('1 of 2 items').isVisible());
+          await page.locator('.budget-filter-panel summary').click();
+          await page.locator('#phase-filter').selectOption('1');assert.equal(await page.locator('.budget-table tbody tr').count(),0);assert.ok((await page.locator('.budget-filter-panel summary').textContent()).includes('1 active'));
           await page.locator('[data-reset-filters]').click();assert.equal(await page.locator('.budget-table tbody tr').count(),2);
-          await page.locator('[data-sort-key="name"]').click();
+          assert.equal(await page.getByRole('searchbox',{name:'Search budget items'}).inputValue(),'');
+          await page.locator('#budget-sort-mobile').selectOption('amount');assert.ok((await page.locator('.budget-table tbody tr').first().textContent()).includes('appliance'));
+          await page.locator('[data-budget-sort-direction]').click();assert.ok((await page.locator('.budget-table tbody tr').first().textContent()).includes('Kitchen cabinet'));
           await page.getByRole('button',{name:'Edit phase for A long sample appliance name'}).click();await page.getByLabel('Phase for A long sample appliance name').selectOption('2');
           assert.ok(await page.getByRole('button',{name:'Edit phase for A long sample appliance name'}).getByText('Phase 2').isVisible());
           await page.getByRole('button',{name:'Edit amount for A long sample appliance name'}).click();await page.getByLabel('Amount for A long sample appliance name').fill('1234.50');await page.getByLabel('Amount for A long sample appliance name').press('Enter');
           assert.ok(await page.getByText('Total for displayed items').isVisible());
         }
+        if(id==='more'){
+          await page.getByRole('button',{name:'Send password reset email'}).click();
+          assert.equal(await page.evaluate(()=>window.resetRequestedFor),'example@example.com');
+        }
         if(process.env.MOBILE_SCREENSHOTS&&width===390)await page.screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,`${id}.png`),fullPage:false});
       }
       assert.deepEqual(errors,[],`${width}px page errors`);await ctx.close();console.log(`Mobile pages and forms passed at ${width}×${height}`);
     }
+    const desktop=await browser.newContext({viewport:{width:1280,height:800}});
+    await desktop.addInitScript(data=>{window.renovationCloud={mode:'cloud',email:'example@example.com',status:{state:'ready'},initialProject:data,session:{stage(){},hasDraft(){return false},retry(){}},identity:{logout:async()=>{},requestPasswordRecovery:async()=>{}}};},project);
+    const page=await desktop.newPage();await page.goto(`http://127.0.0.1:${server.address().port}/`);await page.locator('.sidebar [data-nav="budget"]').click();
+    await page.getByRole('searchbox',{name:'Search budget items'}).fill('sample note');assert.equal(await page.locator('.budget-table tbody tr').count(),1);
+    await page.getByRole('searchbox',{name:'Search budget items'}).fill('not found');assert.ok(await page.getByText('No costs match these filters or search.').isVisible());
+    await page.locator('[data-reset-filters]').click();await page.locator('[data-sort-table="cost"][data-sort-key="amount"]').click();assert.ok((await page.locator('.budget-table tbody tr').first().textContent()).includes('appliance'));
+    await desktop.close();console.log('Desktop search, reset, and sorting passed');
   }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(err=>{console.error(err);server.close();process.exitCode=1;});

@@ -1,1 +1,1 @@
-export {getUser,login,logout,handleAuthCallback,acceptInvite,updateUser} from '@netlify/identity';
+export {getUser,login,logout,handleAuthCallback,acceptInvite,updateUser,requestPasswordRecovery} from '@netlify/identity';
