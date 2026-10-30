@@ -10,7 +10,7 @@ export function createVersionedSync({fetcher, onStatus=()=>{}}) {
     try{response=await fetcher('/api/project',{method:'GET',credentials:'same-origin',cache:'no-store'});}catch{status('offline');throw Error('Could not connect');}
     if(response.status===404){etag=null;loaded=true;status('ready');return null;}
     if(!response.ok){status('error',String(response.status));throw Error('Could not load project');}
-    const value=await response.json(), version=response.headers.get('etag');
+    const value=await response.json(), version=response.headers.get('x-project-version');
     if(!version){status('error','Missing version');throw Error('Project version is missing');}
     etag=version;loaded=true;status('ready');return value;
   }
@@ -22,7 +22,7 @@ export function createVersionedSync({fetcher, onStatus=()=>{}}) {
       const response=await fetcher('/api/project',{method:'PUT',credentials:'same-origin',headers,body:sent});
       if(response.status===409){pending=pending||sent;stopped=true;conflict=true;status('conflict');return;}
       if(!response.ok){pending=pending||sent;stopped=true;status('error',String(response.status));return;}
-      const next=response.headers.get('etag');
+      const next=response.headers.get('x-project-version');
       if(!next){pending=pending||sent;stopped=true;status('error','Missing version');return;}
       etag=next;
       if(!pending)status('saved');

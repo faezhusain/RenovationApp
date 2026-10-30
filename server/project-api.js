@@ -19,7 +19,7 @@ export function createProjectHandler({getUser, verifyOrigin, getStore}) {
       try {
         const entry = await store.getWithMetadata(key, {type:'json', consistency:'strong'});
         if (!entry) return response('No project found',404);
-        return response(JSON.stringify(entry.data),200,{'Content-Type':'application/json; charset=utf-8','ETag':entry.etag});
+        return response(JSON.stringify(entry.data),200,{'Content-Type':'application/json; charset=utf-8','X-Project-Version':entry.etag});
       } catch { return response('Storage unavailable',503); }
     }
     try { await verifyOrigin(request); } catch { return response('Invalid request origin',403); }
@@ -40,7 +40,8 @@ export function createProjectHandler({getUser, verifyOrigin, getStore}) {
     try {
       const result=await store.setJSON(key,value,create?{onlyIfNew:true}:{onlyIfMatch:previous});
       if (!result.modified) return response('Project changed on another device',409);
-      return response(null,204,{'ETag':result.etag});
+      if (!result.etag) return response('Storage unavailable',503);
+      return response(null,204,{'X-Project-Version':result.etag});
     } catch { return response('Storage unavailable',503); }
   };
 }

@@ -19,7 +19,7 @@ test('authentication and user isolation prevent access to another project',async
   f.setUser({id:'owner'});const r=await f.handler(request('GET'));assert.equal((await r.json()).project.name,'Private');assert.equal(r.headers.get('cache-control'),'no-store');
 });
 test('conditional writes stop stale edits from replacing newer work',async()=>{
-  const {handler}=fixture();const first=await handler(request('PUT',project('Initial'),{'x-project-version':'new'}));const old=first.headers.get('etag');
+  const {handler}=fixture();const first=await handler(request('PUT',project('Initial'),{'x-project-version':'new'}));const old=first.headers.get('x-project-version');
   const second=await handler(request('PUT',project('Phone'),{'x-project-version':old}));assert.equal(second.status,204);
   assert.equal((await handler(request('PUT',project('Computer'),{'x-project-version':old}))).status,409);
   assert.equal((await handler(request('PUT',project('Duplicate'),{'x-project-version':'new'}))).status,409);

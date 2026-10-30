@@ -13,11 +13,11 @@ async function context(){
   await ctx.route('**/identity-bundle.js',route=>route.fulfill({status:200,contentType:'text/javascript',body:identity}));
   await ctx.route('**/api/project',async route=>{
     const req=route.request();
-    if(req.method()==='GET')return project?route.fulfill({status:200,contentType:'application/json',headers:{etag:`"${version}"`},body:JSON.stringify(project)}):route.fulfill({status:404});
+    if(req.method()==='GET')return project?route.fulfill({status:200,contentType:'application/json',headers:{'x-project-version':`"${version}"`},body:JSON.stringify(project)}):route.fulfill({status:404});
     if(req.method()==='PUT'){
       const headers=req.headers(),expected=version?headers['x-project-version']===`"${version}"`:headers['x-project-version']==='new';
       if(!expected)return route.fulfill({status:409});
-      project=JSON.parse(req.postData());version++;return route.fulfill({status:204,headers:{etag:`"${version}"`}});
+      project=JSON.parse(req.postData());version++;return route.fulfill({status:204,headers:{'x-project-version':`"${version}"`}});
     }
     return route.fulfill({status:405});
   });
