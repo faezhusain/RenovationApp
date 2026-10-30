@@ -10,6 +10,10 @@ const identity=`export async function handleAuthCallback(){return null} export a
 const browser=await chromium.launch({headless:true});
 async function context(){
   const ctx=await browser.newContext();
+  await ctx.route('**/',async route=>{
+    const response=await route.fetch();
+    await route.fulfill({response,headers:{...response.headers(),'content-security-policy':"script-src 'self'"}});
+  });
   await ctx.route('**/identity-bundle.js',route=>route.fulfill({status:200,contentType:'text/javascript',body:identity}));
   await ctx.route('**/api/project',async route=>{
     const req=route.request();
