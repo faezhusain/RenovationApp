@@ -1,0 +1,11 @@
+# Private project data and backups must stay outside the repository.
+/public/vesta-data.json
+*.xlsx
+*.xls
+*-backup-*.json
+*.env
+.env*
+node_modules/
+.netlify/
+*.log
+~$*
