@@ -18,3 +18,9 @@ jobs:
       - run: npm run build
       - name: Check Netlify module exports
         run: node -e "Promise.all([import('@netlify/identity'),import('@netlify/blobs')]).then(([i,b])=>{for(const n of ['getUser','verifyRequestOrigin','login','logout','handleAuthCallback','acceptInvite','updateUser'])if(typeof i[n]!=='function')throw Error('Missing identity export '+n);if(typeof b.getStore!=='function')throw Error('Missing blob export');})"
+      - run: npm install --no-save playwright@1.64.1 --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Test sign-in, migration and conflicting edits in a browser
+        run: |
+          node server.js &
+          node scripts/sync-browser-test.mjs
