@@ -1,6 +1,6 @@
 # Renovation Companion
 
-A responsive renovation planning and budget application, prepared for a private GitHub repository and a later Netlify deployment.
+A responsive renovation planning and budget application for Vesta Residence, prepared for a GitHub repository and a later Netlify deployment.
 
 ## Run locally
 
