@@ -24,3 +24,5 @@ jobs:
         run: |
           node server.js &
           node scripts/sync-browser-check.mjs
+      - name: Check phone-sized layouts and interactions
+        run: node scripts/mobile-check.cjs
