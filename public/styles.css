@@ -67,13 +67,17 @@
   .mobile-budget-sort select{min-width:0}.mobile-budget-sort button:disabled{opacity:.55}
   .budget-list{padding:0;border:0;background:transparent;box-shadow:none;overflow:visible}
   .budget-table thead{display:none}
-  .budget-table tbody tr{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:'name actions' 'category phase' 'area amount' 'paid paid';gap:7px 14px;margin-bottom:10px;padding:15px;background:#fffefa;border:1px solid var(--line);border-radius:12px}
+  .budget-table tbody tr{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:'name actions' 'category phase' 'area area' 'amount paid';gap:8px;margin-bottom:10px;padding:15px;background:#fffefa;border:1px solid var(--line);border-radius:12px}
   .budget-table tbody td:first-child{grid-area:name}.budget-table tbody td:nth-child(2){grid-area:category}.budget-table tbody td:nth-child(3){grid-area:phase}.budget-table tbody td:nth-child(4){grid-area:area}.budget-table tbody td:nth-child(5){grid-area:amount}.budget-table tbody td:nth-child(6){grid-area:paid}
   .budget-table tbody td:first-child::before{content:none}
   .budget-table tbody td.action-column{grid-area:actions;text-align:right;align-self:start}
   .budget-actions{justify-content:flex-end}
   .budget-table .inline-cell{min-height:30px;padding:3px 4px}
   .budget-table tbody td::before{margin-bottom:2px}
+  .budget-table tbody td:nth-child(n+2):nth-child(-n+6){padding:8px 10px;background:#f6f8f4;border:1px solid #edf1eb;border-radius:8px}
+  .budget-table tbody td:nth-child(5),.budget-table tbody td:nth-child(6){background:#f0f5ef}
+  .budget-table tbody td:nth-child(n+2):nth-child(-n+6):focus-within{border-color:#a9bcae}
+  .budget-table tbody td:nth-child(n+2):nth-child(-n+6) .inline-cell{width:100%;min-height:28px;margin:0;padding:0}
   .budget-table tfoot{background:#fffefa;border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:10px}
   .budget-total{padding:0}
   .budget-list>.empty{background:#fffefa;border:1px solid var(--line);border-radius:12px}
