@@ -5,7 +5,7 @@ import {createNetlifyProjectHandler} from '../server/netlify-adapter.js';
 test('adapter does not access storage when the visitor is not authenticated',async()=>{
   let stores=0;
   const handler=createNetlifyProjectHandler({identity:{getUser:async()=>null,verifyRequestOrigin(){}},blobs:{getStore(){stores++;return {};}}});
-  const r=await handler(new Request('https://example.netlify.app/api/project'));
+  const r=await handler(new Request('https://example.netlify.app/api/project'),{deploy:{context:'production'}});
   assert.equal(r.status,401);assert.equal(stores,0);
 });
 test('adapter uses a strongly consistent store and checks origin on writes',async()=>{
@@ -13,5 +13,15 @@ test('adapter uses a strongly consistent store and checks origin on writes',asyn
   const handler=createNetlifyProjectHandler({identity:{getUser:async()=>({id:'owner'}),verifyRequestOrigin(){checked=true;}},blobs:{getStore(options){opts=options;return {setJSON:async()=>({modified:true,etag:'"v1"'})};}}});
   const body={version:1,project:{name:'Test',target:0,reserve:0,savings:0},costs:[],payments:[],quotes:[],tasks:[],receipts:[],sellerCodes:[],paymentCorrections:[]};
   const request=new Request('https://example.netlify.app/api/project',{method:'PUT',headers:{'content-type':'application/json','if-none-match':'*'},body:JSON.stringify(body)});
-  assert.equal((await handler(request)).status,204);assert.deepEqual(opts,{name:'renovation-projects',consistency:'strong'});assert.equal(checked,true);
+  assert.equal((await handler(request,{deploy:{context:'production'}})).status,204);assert.deepEqual(opts,{name:'renovation-projects',consistency:'strong'});assert.equal(checked,true);
+});
+test('preview storage is isolated and unknown deploy contexts fail closed',async()=>{
+  let opts;
+  const handler=createNetlifyProjectHandler({identity:{getUser:async()=>({id:'owner'}),verifyRequestOrigin(){}},blobs:{getStore(options){opts=options;return {getWithMetadata:async()=>null};}}});
+  const request=new Request('https://preview.example.netlify.app/api/project');
+  assert.equal((await handler(request,{deploy:{context:'branch-deploy'}})).status,404);
+  assert.deepEqual(opts,{name:'renovation-projects-preview',consistency:'strong'});
+  opts=undefined;
+  assert.equal((await handler(request,{})).status,503);
+  assert.equal(opts,undefined);
 });
