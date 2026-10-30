@@ -110,5 +110,37 @@ const actions={checklist:['task'],budget:['cost','payment'],quotes:['quote'],rec
       await navigate('budget');assert.ok(await page.getByText('Example payment').isVisible());await navigate('quotes');assert.ok(await page.getByText('Example supplier').isVisible());
       await ctx.close();console.log(`Cost deletion and restoration passed at ${width}px`);
     }
+    for(const width of [390,1280]){
+      const data=structuredClone(project);
+      data.payments.push({id:'refund',costId:'c1',type:'refund',originalId:'p1',date:'2026-01-02',amount:5000,reference:'Example refund'});
+      data.paymentCorrections=[{id:'adjust',costId:'c1',amount:1000,createdAt:'2026-01-01T00:00:00Z'}];
+      data.quotes.push({id:'accepted',costId:'c1',supplier:'Accepted supplier',amount:123450,details:'Accepted quotation',accepted:true});
+      data.receipts=[{id:'receipt',title:'Example receipt',filename:'receipt.png',date:'2026-01-01',notes:'',type:'image/png',size:8,data:'iVBORw0KGgo=',costId:'c1',paymentId:'p1'}];
+      const ctx=await browser.newContext({viewport:{width,height:844}});
+      await ctx.addInitScript(data=>{window.renovationCloud={mode:'cloud',email:'example@example.com',status:{state:'ready'},initialProject:data,session:{stage(value){window.lastStaged=structuredClone(value)},hasDraft(){return false},retry(){}},identity:{logout:async()=>{}}};},data);
+      const page=await ctx.newPage();const messages=[];page.on('dialog',d=>{messages.push(d.message());return d.accept();});
+      const nav=async id=>{if(width>900)await page.locator(`.sidebar [data-nav="${id}"]`).click();else if(['home','checklist','budget','quotes','more'].includes(id))await page.locator(`.mobile-nav [data-nav="${id}"]`).click();else{await page.locator('.mobile-nav [data-nav="more"]').click();await page.locator(`.content [data-nav="${id}"]`).first().click();}};
+      await page.goto(`http://127.0.0.1:${server.address().port}/`);
+      await nav('quotes');await page.getByRole('button',{name:'Delete quotation from Example supplier'}).click();await page.getByRole('button',{name:'Delete quotation from Accepted supplier'}).click();
+      assert.ok(messages.some(x=>x.includes('agreed cost and payments stay unchanged')));assert.ok(await page.getByText('No quotations yet.').isVisible());
+      let snapshot=await page.evaluate(()=>window.lastStaged);assert.equal(snapshot.costs.find(x=>x.id==='c1').amount,123450);assert.equal(snapshot.costs.find(x=>x.id==='c1').status,'agreed');
+      await nav('budget');await page.getByRole('button',{name:'Delete payment for A long sample appliance name'}).click();assert.ok(messages.some(x=>x.includes('Related refunds will also be excluded')));assert.equal(await page.getByRole('button',{name:'Delete refund for A long sample appliance name'}).count(),0);
+      await nav('home');assert.match(await page.locator('.metric').filter({hasText:'Already paid'}).textContent(),/RM\s*10/);
+      await nav('more');await page.locator('.list-row').filter({hasText:'payment - RM'}).getByRole('button',{name:'Restore'}).click();
+      await nav('budget');await page.getByRole('button',{name:'Delete refund for A long sample appliance name'}).click();await page.getByRole('button',{name:'Delete payment for A long sample appliance name'}).click();await page.getByRole('button',{name:'Delete paid correction for A long sample appliance name'}).click();
+      await nav('home');assert.match(await page.locator('.metric').filter({hasText:'Already paid'}).textContent(),/RM\s*0/);
+      await nav('receipts');await page.getByRole('button',{name:'Edit',exact:true}).click();assert.equal(await page.locator('select[name="paymentId"]').inputValue(),'p1');await page.getByRole('button',{name:'Delete receipt'}).click();assert.ok(await page.getByText('No receipts yet.').isVisible());
+      await nav('seller');await page.getByRole('button',{name:'Edit',exact:true}).click();await page.getByRole('button',{name:'Delete seller'}).click();assert.ok(await page.getByText('No sellers yet.').isVisible());
+      await nav('checklist');await page.getByRole('button',{name:'Edit Check the sample renovation plans'}).click();await page.getByRole('button',{name:'Delete task'}).click();assert.ok(await page.getByText('No tasks match your search.').isVisible());
+      snapshot=await page.evaluate(()=>window.lastStaged);const {prepareMigration}=await import('../public/migration.js');prepareMigration(JSON.stringify(snapshot),true);assert.ok(snapshot.quotes.every(x=>x.voided));assert.ok(snapshot.payments.every(x=>x.voided));assert.ok(snapshot.receipts[0].voided&&snapshot.sellerCodes[0].voided&&snapshot.tasks[0].archived);
+      await nav('more');await page.locator('.list-row').filter({hasText:'Example supplier'}).getByRole('button',{name:'Restore'}).click();await page.locator('.list-row').filter({hasText:'Accepted supplier'}).getByRole('button',{name:'Restore'}).click();
+      await page.locator('.list-row').filter({hasText:'refund - RM'}).getByRole('button',{name:'Restore'}).click();assert.ok(messages.some(x=>x.includes('Restore the original payment')));
+      await page.locator('.list-row').filter({hasText:'payment - RM'}).getByRole('button',{name:'Restore'}).click();await page.locator('.list-row').filter({hasText:'refund - RM'}).getByRole('button',{name:'Restore'}).click();
+      await page.locator('.list-row').filter({hasText:'A long sample appliance name'}).getByRole('button',{name:'Restore'}).click();
+      await page.locator('.list-row').filter({hasText:'Example receipt'}).getByRole('button',{name:'Restore'}).click();await page.locator('.list-row').filter({hasText:'Example seller'}).getByRole('button',{name:'Restore'}).click();await page.locator('.list-row').filter({hasText:'Check the sample renovation plans'}).getByRole('button',{name:'Restore'}).click();
+      snapshot=await page.evaluate(()=>window.lastStaged);prepareMigration(JSON.stringify(snapshot),true);assert.ok(snapshot.quotes.every(x=>!x.voided));assert.ok(snapshot.payments.every(x=>!x.voided));assert.ok(!snapshot.receipts[0].voided&&!snapshot.sellerCodes[0].voided&&!snapshot.tasks[0].archived);
+      await nav('home');assert.match(await page.locator('.metric').filter({hasText:'Already paid'}).textContent(),/RM\s*160/);await nav('quotes');assert.ok(await page.getByText('Example supplier').isVisible());assert.ok(await page.getByText('Accepted supplier').isVisible());
+      await ctx.close();console.log(`Manual entry deletion and restoration passed at ${width}px`);
+    }
   }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(err=>{console.error(err);server.close();process.exitCode=1;});

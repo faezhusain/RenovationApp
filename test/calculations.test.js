@@ -23,3 +23,8 @@ test('paid-total corrections affect net paid and balances without changing payme
   const s={project:{target:10000,reserve:0},costs:[{id:'a',status:'agreed',amount:10000}],payments:[{id:'p',costId:'a',type:'payment',amount:4000}],paymentCorrections:[{costId:'a',amount:-1000}]};
   const t=totals(s);assert.equal(t.paid,3000);assert.equal(t.outstanding,7000);assert.equal(s.payments[0].amount,4000);
 });
+test('deleted payments exclude dependent refunds and deleted corrections until restored',()=>{
+  const s={project:{target:0,reserve:0},costs:[{id:'a',status:'agreed',amount:10000}],payments:[{id:'p',costId:'a',type:'payment',amount:4000},{id:'r',costId:'a',type:'refund',originalId:'p',amount:1000}],paymentCorrections:[{id:'c',costId:'a',amount:500}]};
+  assert.equal(totals(s).paid,3500);s.payments[0].voided=true;assert.equal(totals(s).paid,500);s.paymentCorrections[0].voided=true;assert.equal(totals(s).paid,0);
+  s.payments[0].voided=false;assert.equal(totals(s).paid,3000);s.payments[1].voided=true;assert.equal(totals(s).paid,4000);s.paymentCorrections[0].voided=false;assert.equal(totals(s).paid,4500);
+});

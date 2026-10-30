@@ -1,7 +1,13 @@
 // All money is held as integer minor units. Alternative quotes never count as commitments.
+export function isActivePayment(state, payment) {
+  if(payment.voided)return false;
+  if(payment.type!=='refund'||!payment.originalId)return true;
+  const original=state.payments.find(p=>p.id===payment.originalId);
+  return !original||!original.voided;
+}
 export function paidForCost(state, costId) {
-  const payments=state.payments.filter(p=>!p.voided&&p.costId===costId).reduce((sum,p)=>sum+(p.type==='refund'?-p.amount:p.amount),0);
-  const corrections=(state.paymentCorrections||[]).filter(c=>c.costId===costId).reduce((sum,c)=>sum+c.amount,0);
+  const payments=state.payments.filter(p=>isActivePayment(state,p)&&p.costId===costId).reduce((sum,p)=>sum+(p.type==='refund'?-p.amount:p.amount),0);
+  const corrections=(state.paymentCorrections||[]).filter(c=>!c.voided&&c.costId===costId).reduce((sum,c)=>sum+c.amount,0);
   return payments+corrections;
 }
 export function totals(state) {
