@@ -23,4 +23,4 @@ jobs:
       - name: Test sign-in, migration and conflicting edits in a browser
         run: |
           node server.js &
-          node scripts/sync-browser-test.mjs
+          node scripts/sync-browser-check.mjs
