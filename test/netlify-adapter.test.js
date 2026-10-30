@@ -12,7 +12,7 @@ test('adapter uses a strongly consistent store and checks origin on writes',asyn
   let opts,checked=false;
   const handler=createNetlifyProjectHandler({identity:{getUser:async()=>({id:'owner'}),verifyRequestOrigin(){checked=true;}},blobs:{getStore(options){opts=options;return {setJSON:async()=>({modified:true,etag:'"v1"'})};}}});
   const body={version:1,project:{name:'Test',target:0,reserve:0,savings:0},costs:[],payments:[],quotes:[],tasks:[],receipts:[],sellerCodes:[],paymentCorrections:[]};
-  const request=new Request('https://example.netlify.app/api/project',{method:'PUT',headers:{'content-type':'application/json','if-none-match':'*'},body:JSON.stringify(body)});
+  const request=new Request('https://example.netlify.app/api/project',{method:'PUT',headers:{'content-type':'application/json','x-project-version':'new'},body:JSON.stringify(body)});
   assert.equal((await handler(request,{deploy:{context:'production'}})).status,204);assert.deepEqual(opts,{name:'renovation-projects',consistency:'strong'});assert.equal(checked,true);
 });
 test('preview storage is isolated and unknown deploy contexts fail closed',async()=>{

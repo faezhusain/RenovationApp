@@ -24,9 +24,12 @@ export function createProjectHandler({getUser, verifyOrigin, getStore}) {
     }
     try { await verifyOrigin(request); } catch { return response('Invalid request origin',403); }
     if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type')||'')) return response('JSON required',415);
-    const previous = request.headers.get('if-match');
-    const create = request.headers.get('if-none-match') === '*';
-    if (Boolean(previous) === create) return response('A single version precondition is required',428);
+    // A custom header avoids conditional HTTP headers being consumed by the CDN.
+    // The Blob write itself still enforces the version atomically.
+    const version = request.headers.get('x-project-version');
+    if (!version) return response('A version precondition is required',428);
+    const create = version === 'new';
+    const previous = create ? null : version;
     const declared = Number(request.headers.get('content-length'));
     if (Number.isFinite(declared) && declared > MAX_BYTES) return response('Project is too large',413);
     let text;

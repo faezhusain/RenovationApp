@@ -9,7 +9,7 @@ test('coalesces edits while a save is in flight and uses the returned version',a
   const states=[];const sync=createVersionedSync({fetcher,onStatus:x=>states.push(x.state)});
   assert.equal(await sync.load(),null);sync.enqueue({revision:1});assert.deepEqual(sync.pendingData(),{revision:1});sync.enqueue({revision:2});sync.enqueue({revision:3});assert.deepEqual(sync.pendingData(),{revision:3});
   resolveFirst(new Response(null,{status:204,headers:{etag:'"1"'}}));await tick();await tick();
-  assert.equal(calls.length,3);assert.equal(calls[1].headers['If-None-Match'],'*');assert.equal(calls[2].headers['If-Match'],'"1"');assert.deepEqual(JSON.parse(calls[2].body),{revision:3});assert.equal(states.at(-1),'saved');
+  assert.equal(calls.length,3);assert.equal(calls[1].headers['X-Project-Version'],'new');assert.equal(calls[2].headers['X-Project-Version'],'"1"');assert.deepEqual(JSON.parse(calls[2].body),{revision:3});assert.equal(states.at(-1),'saved');
 });
 test('retains the newest unsynced edits on conflict and never overwrites on retry',async()=>{
   let puts=0;const fetcher=async(url,r)=>{if(r.method==='GET')return new Response('{"version":1}',{headers:{etag:'"old"'}});puts++;return new Response(null,{status:409});};

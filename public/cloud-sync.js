@@ -18,7 +18,7 @@ export function createVersionedSync({fetcher, onStatus=()=>{}}) {
     if(!loaded||inFlight||stopped||!pending)return;
     inFlight=true;const sent=pending;active=sent;pending=null;status('saving');
     try{
-      const headers={'Content-Type':'application/json',...(etag?{'If-Match':etag}:{'If-None-Match':'*'})};
+      const headers={'Content-Type':'application/json','X-Project-Version':etag||'new'};
       const response=await fetcher('/api/project',{method:'PUT',credentials:'same-origin',headers,body:sent});
       if(response.status===409){pending=pending||sent;stopped=true;conflict=true;status('conflict');return;}
       if(!response.ok){pending=pending||sent;stopped=true;status('error',String(response.status));return;}
