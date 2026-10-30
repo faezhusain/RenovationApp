@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { totals, progress, parseMoney } from '../public/calculations.js';
+import { totals, progress, parseMoney, plannedBudgetProgress } from '../public/calculations.js';
 
 test('reconciles reference values and keeps savings outside payment calculations', () => {
   const s = { project: { target: 15000000, reserve: 450000, savings: 300000 }, costs: [{ id:'a', status:'agreed', amount:11080000 }], payments: [{costId:'a', amount:10790000, type:'payment'}] };
@@ -27,4 +27,13 @@ test('deleted payments exclude dependent refunds and deleted corrections until r
   const s={project:{target:0,reserve:0},costs:[{id:'a',status:'agreed',amount:10000}],payments:[{id:'p',costId:'a',type:'payment',amount:4000},{id:'r',costId:'a',type:'refund',originalId:'p',amount:1000}],paymentCorrections:[{id:'c',costId:'a',amount:500}]};
   assert.equal(totals(s).paid,3500);s.payments[0].voided=true;assert.equal(totals(s).paid,500);s.paymentCorrections[0].voided=true;assert.equal(totals(s).paid,0);
   s.payments[0].voided=false;assert.equal(totals(s).paid,3000);s.payments[1].voided=true;assert.equal(totals(s).paid,4000);s.paymentCorrections[0].voided=false;assert.equal(totals(s).paid,4500);
+});
+test('planned budget tracks active item amounts and percentage actually paid',()=>{
+  const s={project:{target:8400000,reserve:600000},costs:[{id:'a',status:'agreed',amount:311800},{id:'b',status:'estimated',amount:8000000},{id:'removed',status:'estimated',amount:50000,voided:true}],payments:[{id:'p',costId:'a',type:'payment',amount:600000},{id:'r',costId:'a',type:'refund',originalId:'p',amount:100000}],paymentCorrections:[{costId:'a',amount:6800}]};
+  const result=plannedBudgetProgress(totals(s));assert.equal(result.planned,8311800);assert.equal(result.paid,506800);assert.equal(result.remaining,7805000);assert.equal(result.percent,6.1);assert.ok(result.ringPercent>6&&result.ringPercent<7);
+});
+test('planned budget handles zero, excess payments and net refunds',()=>{
+  assert.deepEqual(plannedBudgetProgress({forecast:0,paid:0}),{planned:0,paid:0,remaining:0,percent:null,ringPercent:0});
+  assert.deepEqual(plannedBudgetProgress({forecast:10000,paid:15000}),{planned:10000,paid:15000,remaining:-5000,percent:150,ringPercent:100});
+  assert.deepEqual(plannedBudgetProgress({forecast:10000,paid:-500}),{planned:10000,paid:-500,remaining:10500,percent:-5,ringPercent:0});
 });

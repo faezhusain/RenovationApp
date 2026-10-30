@@ -32,6 +32,10 @@ const actions={checklist:['task'],budget:['cost','payment'],quotes:['quote'],rec
         else if(['checklist','budget','quotes','more'].includes(id))await page.locator(`.mobile-nav [data-nav="${id}"]`).click();
         else {await page.locator('.mobile-nav [data-nav="more"]').click();await page.locator(`.content [data-nav="${id}"]`).first().click();}
         if(id==='home')await page.locator('.hero h1').waitFor();else await page.getByRole('heading',{name:title,exact:true}).first().waitFor();
+        if(id==='home'){
+          const budget=page.locator('.planned-budget');assert.match(await budget.textContent(),/Total planned\s*RM\s*6,234\.5/);assert.match(await budget.textContent(),/Paid\s*RM\s*200/);assert.match(await budget.textContent(),/Remaining\s*RM\s*6,034\.5/);assert.match(await budget.textContent(),/3\.2%/);
+          if(process.env.MOBILE_SCREENSHOTS&&width===390)await budget.screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,'planned-budget.png')});
+        }
         const overflow=await page.evaluate(()=>({viewport:document.documentElement.clientWidth,page:document.documentElement.scrollWidth}));
         assert.ok(overflow.page<=overflow.viewport+1,`${width}px ${id}: page exceeds viewport (${JSON.stringify(overflow)})`);
         const nav=await page.locator('.mobile-nav').boundingBox();assert.ok(nav&&nav.x>=0&&nav.x+nav.width<=width+1,`${width}px ${id}: navigation outside viewport`);
@@ -100,7 +104,7 @@ const actions={checklist:['task'],budget:['cost','payment'],quotes:['quote'],rec
       assert.ok(await page.getByText('Your deposits, payments and refunds will appear here.').isVisible());
       const deleted=await page.evaluate(()=>window.lastStaged);assert.equal(deleted.costs.find(c=>c.id==='c1').voided,true);assert.equal(deleted.payments.length,1);assert.equal(deleted.paymentCorrections.length,1);assert.equal(deleted.receipts.length,1);assert.equal(deleted.quotes.length,1);
       const {prepareMigration}=await import('../public/migration.js');prepareMigration(JSON.stringify(deleted),true);
-      await navigate('home');assert.match(await page.locator('.metric').filter({hasText:'Already paid'}).textContent(),/RM\s*0/);
+      await navigate('home');assert.match(await page.locator('.metric').filter({hasText:'Already paid'}).textContent(),/RM\s*0/);assert.match(await page.locator('.planned-budget').textContent(),/Total planned\s*RM\s*5,000/);assert.match(await page.locator('.planned-budget').textContent(),/0%/);
       for(const title of await page.locator('.bar-col').evaluateAll(els=>els.map(el=>el.title)))assert.match(title,/RM\s*0$/,'Deleted payment still appears in chart');
       await navigate('receipts');assert.ok(await page.getByText('Example receipt').isVisible());await page.getByRole('button',{name:'Edit',exact:true}).click();assert.equal(await page.locator('select[name="costId"]').inputValue(),'c1');assert.equal(await page.locator('select[name="paymentId"]').inputValue(),'p1');await page.locator('dialog [data-action="close"]').first().click();
       await navigate('quotes');assert.ok(await page.getByText('No quotations yet.').isVisible());

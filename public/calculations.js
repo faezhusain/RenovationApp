@@ -26,6 +26,13 @@ export function totals(state) {
   const target = state.project.target || 0, reserve = state.project.reserve || 0;
   return { target, reserve, agreed, paid, outstanding, overpaid, forecast, unallocated: target - agreed - reserve, forecastHeadroom: target - forecast - reserve };
 }
+// The item budget excludes the separate savings snapshot and emergency reserve.
+export function plannedBudgetProgress(t) {
+  const planned=t.forecast, paid=t.paid, remaining=planned-paid;
+  const percent=planned>0?Math.round(paid/planned*1000)/10:null;
+  const ringPercent=planned>0?Math.min(100,Math.max(0,paid/planned*100)):0;
+  return {planned,paid,remaining,percent,ringPercent};
+}
 export function progress(tasks) {
   const active = tasks.filter(t => !t.archived && t.status !== 'Skip');
   const done = active.filter(t => t.status === 'Done').length;
