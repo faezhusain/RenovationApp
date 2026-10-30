@@ -1,0 +1,20 @@
+name: Cloud sync checks
+on:
+  push:
+    branches: [cloud-sync-wip]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+      - name: Check Netlify module exports
+        run: node -e "Promise.all([import('@netlify/identity'),import('@netlify/blobs')]).then(([i,b])=>{for(const n of ['getUser','verifyRequestOrigin','login','logout','handleAuthCallback','acceptInvite','updateUser'])if(typeof i[n]!=='function')throw Error('Missing identity export '+n);if(typeof b.getStore!=='function')throw Error('Missing blob export');})"

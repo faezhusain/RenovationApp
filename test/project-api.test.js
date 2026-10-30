@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProjectHandler} from '../server/project-api.js';
 
-const project=name=>({version:1,project:{name},costs:[],payments:[],quotes:[],tasks:[],receipts:[],sellerCodes:[],paymentCorrections:[]});
+const project=name=>({version:1,project:{name,target:0,reserve:0,savings:0},costs:[],payments:[],quotes:[],tasks:[],receipts:[],sellerCodes:[],paymentCorrections:[]});
 function fixture(){
   const data=new Map();let version=0,user={id:'owner'};
   const store={async getWithMetadata(key){return data.get(key)||null;},async setJSON(key,value,options){const existing=data.get(key);if(options.onlyIfNew&&existing||options.onlyIfMatch&&existing?.etag!==options.onlyIfMatch)return {modified:false};const etag=`"${++version}"`;data.set(key,{data:value,etag});return {modified:true,etag};}};

@@ -36,5 +36,6 @@ export function createVersionedSync({fetcher, onStatus=()=>{}}) {
   }
   function retry(){if(!conflict){stopped=false;void flush();}}
   function pendingData(){const data=pending||active;return data?JSON.parse(data):null;}
-  return {load,enqueue,retry,pendingData};
+  function getVersion(){return etag;}
+  return {load,enqueue,retry,pendingData,getVersion};
 }

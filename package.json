@@ -5,7 +5,13 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build": "node scripts/check-public.mjs && esbuild src/identity-entry.js --bundle --format=esm --platform=browser --outfile=public/identity-bundle.js"
   },
+  "dependencies": {
+    "@netlify/blobs": "11.1.7",
+    "@netlify/identity": "2.0.0"
+  },
+  "devDependencies": { "esbuild": "0.28.2" },
   "engines": { "node": ">=20" }
 }

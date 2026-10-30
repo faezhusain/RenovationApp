@@ -1,5 +1,5 @@
 [build]
-  command = "node scripts/check-public.mjs"
+  command = "npm run build"
   publish = "public"
 
 [[headers]]

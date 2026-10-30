@@ -1,10 +1,9 @@
 // Platform-neutral handler. The Netlify adapter will provide verified identity,
 // request-origin checking and a strongly consistent Blob store.
+import {prepareMigration} from '../public/migration.js';
 const MAX_BYTES = 4 * 1024 * 1024;
 const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Cookie' };
 const response = (body, status, extra={}) => new Response(body, {status, headers:{...headers,...extra}});
-const basicProject = x => x && typeof x === 'object' && x.version === 1 && x.project && typeof x.project === 'object' &&
-  ['costs','payments','quotes','tasks','receipts','sellerCodes','paymentCorrections'].every(key=>Array.isArray(x[key]));
 
 export function createProjectHandler({getUser, verifyOrigin, getStore}) {
   return async function handle(request) {
@@ -34,8 +33,7 @@ export function createProjectHandler({getUser, verifyOrigin, getStore}) {
     try { text=await request.text(); } catch { return response('Invalid request body',400); }
     if (new TextEncoder().encode(text).length > MAX_BYTES) return response('Project is too large',413);
     let value;
-    try { value=JSON.parse(text); } catch { return response('Invalid JSON',400); }
-    if (!basicProject(value)) return response('Invalid project',400);
+    try { value=prepareMigration(text,false).project; } catch { return response('Invalid project',400); }
     try {
       const result=await store.setJSON(key,value,create?{onlyIfNew:true}:{onlyIfMatch:previous});
       if (!result.modified) return response('Project changed on another device',409);

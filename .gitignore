@@ -1,5 +1,6 @@
 # Private project data and backups must stay outside the repository.
 /public/vesta-data.json
+/public/identity-bundle.js
 *.xlsx
 *.xls
 *-backup-*.json
