@@ -69,6 +69,23 @@
   #toast{bottom:calc(76px + env(safe-area-inset-bottom));left:16px;right:16px}
 }
 @media(max-width:360px){.family-entry{align-items:start;flex-direction:column}.family-entry-side{width:100%;display:flex;justify-content:space-between;align-items:center}.family-metrics strong{font-size:15px}}
+
+/* Compact spreadsheet-inspired rows for family planning. */
+.family-list-help{margin:0 0 8px;color:#748179;font-size:12px}
+.family-list{display:block;overflow:hidden;border:1px solid #e1e8df;border-radius:10px;background:#fffefa}
+.family-list-head,.family-entry{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(125px,1.2fr) minmax(100px,1fr) minmax(100px,1fr) 14px;gap:12px;align-items:center}
+.family-list-head{padding:10px 14px;background:#f1f5ef;color:#718075;text-transform:uppercase;letter-spacing:.08em;font-size:10px;font-weight:700}
+.family-list-head span:nth-child(4){text-align:right}
+.family-entry{width:100%;padding:9px 14px;border:0;border-top:1px solid #e9ede7;border-radius:0;background:transparent;text-align:left;color:inherit;cursor:pointer;font:inherit}
+.family-entry:hover{background:#f5f8f3}.family-entry:focus-visible{position:relative;outline:2px solid #486f5c;outline-offset:-2px}
+.family-entry-main{min-width:0;line-height:1.35}.family-entry-main strong{display:block;font-size:13px}.family-entry-note{display:block;margin-top:2px;color:#7e8a82;font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+.family-entry .family-kind{justify-self:start;padding:4px 7px;line-height:1.2}.family-due{min-width:0;color:#75827a;font-size:12px;overflow-wrap:anywhere}.family-amount{text-align:right;white-space:nowrap;font-size:14px}.family-edit-indicator{color:#899a8d;font-size:20px;line-height:1;text-align:right}
+.family-list .family-empty{border:0}
+@media(max-width:900px){
+  .family-list-head{display:none}
+  .family-entry{grid-template-columns:minmax(0,1fr) auto 12px;grid-template-areas:'name amount arrow' 'kind due arrow';gap:4px 8px;align-items:center;padding:10px 12px}
+  .family-entry-main{grid-area:name}.family-entry .family-kind{grid-area:kind}.family-due{grid-area:due;text-align:right;font-size:11px}.family-amount{grid-area:amount}.family-edit-indicator{grid-area:arrow}
+}
 @media(max-width:360px){.donut-wrap{flex-direction:column;align-items:flex-start}.legend{width:100%}.metrics{grid-template-columns:1fr 1fr}.metric .value{font-size:20px}.hero{padding:20px}.hero h1{font-size:29px}}
 
 @media(max-width:900px){

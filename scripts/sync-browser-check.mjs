@@ -54,7 +54,7 @@ try{
   const plan={format:'renovation-family-finances-v1',entries:[{id:'imported',person:'Mummy',kind:'expected',name:'Example income',amount:50000,due:'Later',notes:''}]};
   await page.locator('#family-import-file').setInputFiles({name:'example-finances.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(plan))});await page.getByText('Saved to cloud',{exact:true}).waitFor();assert.equal(project.familyFinances.length,2);
   await page.locator('#family-import-file').setInputFiles({name:'example-finances.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(plan))});assert.equal(project.familyFinances.length,2);
-  await page.getByRole('button',{name:'Delete Sample savings'}).click();await page.getByText('Saved to cloud',{exact:true}).waitFor();assert.equal(project.familyFinances.find(x=>x.name==='Sample savings').voided,true);
+  await page.getByRole('button',{name:'Edit Sample savings'}).click();await page.getByRole('button',{name:'Delete entry'}).click();await page.getByText('Saved to cloud',{exact:true}).waitFor();assert.equal(project.familyFinances.find(x=>x.name==='Sample savings').voided,true);
   await page.locator('.sidebar [data-nav="more"]').click();await page.locator('.list-row').filter({hasText:'Sample savings'}).getByRole('button',{name:'Restore'}).click();await page.getByText('Saved to cloud',{exact:true}).waitFor();assert.equal(project.familyFinances.find(x=>x.name==='Sample savings').voided,false);
   const {prepareMigration}=await import('../public/migration.js');assert.equal(prepareMigration(JSON.stringify(project),true).project.familyFinances.length,2);
   const second=await context(),other=await second.newPage();await login(other);

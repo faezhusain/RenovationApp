@@ -82,8 +82,9 @@ const actions={checklist:['task'],budget:['cost','payment'],family:['family-entr
           await page.getByLabel('Search').fill('');await page.locator('#family-sort').selectOption('amount');assert.ok((await page.locator('.family-entry').first().textContent()).includes('Example expense'));
           await page.locator('[data-family-direction]').click();assert.ok((await page.locator('.family-entry').first().textContent()).includes('Example savings'));
           await page.getByRole('button',{name:'Edit Example expense'}).click();await page.getByLabel('Amount (RM)').fill('99.00');await page.getByRole('button',{name:'Save',exact:true}).click();assert.match(await page.locator('.family-balance').textContent(),/RM\s*1,101/);
-          await page.getByRole('button',{name:'Delete Example expense'}).click();assert.equal(await page.getByText('Example expense').count(),0);
+          await page.getByRole('button',{name:'Edit Example expense'}).click();await page.getByRole('button',{name:'Delete entry'}).click();assert.equal(await page.getByText('Example expense').count(),0);
           await page.locator('.mobile-nav [data-nav="more"]').click();await page.locator('.list-row').filter({hasText:'Example expense'}).getByRole('button',{name:'Restore'}).click();await page.locator('.content [data-nav="family"]').click();assert.ok(await page.getByText('Example expense').isVisible());
+          if(process.env.MOBILE_SCREENSHOTS&&width===390)await page.locator('#family-list').screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,'family-list.png')});
         }
         if(process.env.MOBILE_SCREENSHOTS&&width===390)await page.screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,`${id}.png`),fullPage:false});
       }
