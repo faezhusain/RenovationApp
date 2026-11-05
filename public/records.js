@@ -1,13 +1,14 @@
 export const MAX_RECEIPT_BYTES = 1024 * 1024;
 export const RECEIPT_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+import {validFamilyEntries} from './family-finances.js';
 
 // Old backups and projects predate these sections. Preserve their existing data.
 export function withNewSections(value) {
-  return { ...value, receipts: value.receipts ?? [], sellerCodes: value.sellerCodes ?? [], paymentCorrections: value.paymentCorrections ?? [] };
+  return { ...value, receipts: value.receipts ?? [], sellerCodes: value.sellerCodes ?? [], paymentCorrections: value.paymentCorrections ?? [], familyFinances: value.familyFinances ?? [] };
 }
 
 export function validNewSections(value) {
-  return Array.isArray(value.receipts) && value.receipts.every(r =>
+  return validFamilyEntries(value.familyFinances ?? []) && Array.isArray(value.receipts) && value.receipts.every(r =>
     r && typeof r.id === 'string' && typeof r.title === 'string' && typeof r.filename === 'string' && typeof r.date === 'string' && typeof r.notes === 'string' &&
     RECEIPT_TYPES.includes(r.type) && Number.isInteger(r.size) && r.size > 0 && r.size <= MAX_RECEIPT_BYTES &&
     typeof r.data === 'string' && r.data.length <= Math.ceil(MAX_RECEIPT_BYTES / 3) * 4 && /^[A-Za-z0-9+/]*={0,2}$/.test(r.data) && validEncodedFile(r) &&

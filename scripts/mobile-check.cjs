@@ -10,12 +10,13 @@ const project={version:1,project:{name:'A long sample renovation project',type:'
   payments:[{id:'p1',costId:'c1',type:'payment',date:'2026-01-01',amount:20000,reference:'Example payment'}],
   quotes:[{id:'q1',costId:'c1',supplier:'Example supplier',amount:123450,details:'Example quotation',accepted:false}],
   tasks:[{id:'t1',title:'Check the sample renovation plans',stage:'Planning',importance:'Must do',status:'Doing',description:'Sample notes',room:'Kitchen',due:''}],
-  receipts:[],sellerCodes:[{id:'s1',seller:'Example seller',contact:'0123456789',code:'REF123',notes:'Example notes'}],paymentCorrections:[],research:[{topics:[{title:'Appliance research',entries:['Example appliance and option']}]}]};
+  receipts:[],sellerCodes:[{id:'s1',seller:'Example seller',contact:'0123456789',code:'REF123',notes:'Example notes'}],paymentCorrections:[],research:[{topics:[{title:'Appliance research',entries:['Example appliance and option']}]}],
+  familyFinances:[{id:'f1',person:'Daddy',kind:'available',name:'Example savings',amount:100000,due:'',notes:''},{id:'f2',person:'Daddy',kind:'expected',name:'Example bonus',amount:20000,due:'Next year',notes:''},{id:'f3',person:'Daddy',kind:'expense',name:'Example expense',amount:15000,due:'',notes:''},{id:'f4',person:'Mummy',kind:'available',name:'Mummy savings',amount:25000,due:'',notes:''},{id:'f5',person:'Shared',kind:'shared',name:'Shared example',amount:101,due:'',notes:''}]};
 const types={'.html':'text/html','.css':'text/css','.js':'text/javascript','.json':'application/json'};
 const root=path.resolve('public');
 const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http://localhost').pathname;const file=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}fs.readFile(file,(err,data)=>{if(err){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':(types[path.extname(file)]||'application/octet-stream')+'; charset=utf-8'});res.end(data);});});
-const pages=[['home','Home'],['checklist','Renovation checklist'],['budget','Your renovation budget'],['quotes','Quotations'],['more','More'],['appliances','Appliances & selections'],['receipts','Receipts'],['myhome','My home'],['guide','Your renovation guide'],['seller','Seller codes']];
-const actions={checklist:['task'],budget:['cost','payment'],quotes:['quote'],receipts:['receipt'],myhome:['settings'],seller:['seller-code']};
+const pages=[['home','Home'],['checklist','Renovation checklist'],['budget','Your renovation budget'],['quotes','Quotations'],['more','More'],['family','Family finances'],['appliances','Appliances & selections'],['receipts','Receipts'],['myhome','My home'],['guide','Your renovation guide'],['seller','Seller codes']];
+const actions={checklist:['task'],budget:['cost','payment'],family:['family-entry'],quotes:['quote'],receipts:['receipt'],myhome:['settings'],seller:['seller-code']};
 
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -32,6 +33,7 @@ const actions={checklist:['task'],budget:['cost','payment'],quotes:['quote'],rec
         else if(['checklist','budget','quotes','more'].includes(id))await page.locator(`.mobile-nav [data-nav="${id}"]`).click();
         else {await page.locator('.mobile-nav [data-nav="more"]').click();await page.locator(`.content [data-nav="${id}"]`).first().click();}
         if(id==='home')await page.locator('.hero h1').waitFor();else await page.getByRole('heading',{name:title,exact:true}).first().waitFor();
+        if(id==='family'&&process.env.MOBILE_SCREENSHOTS&&width===390){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,'family-top.png')});}
         if(id==='home'){
           const budget=page.locator('.planned-budget');assert.match(await budget.textContent(),/Total planned\s*RM\s*6,234\.5/);assert.match(await budget.textContent(),/Paid\s*RM\s*200/);assert.match(await budget.textContent(),/Remaining\s*RM\s*6,034\.5/);assert.match(await budget.textContent(),/3\.2%/);
           if(process.env.MOBILE_SCREENSHOTS&&width===390)await budget.screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,'planned-budget.png')});
@@ -71,6 +73,17 @@ const actions={checklist:['task'],budget:['cost','payment'],quotes:['quote'],rec
         if(id==='more'){
           await page.getByRole('button',{name:'Send password reset email'}).click();
           assert.equal(await page.evaluate(()=>window.resetRequestedFor),'example@example.com');
+        }
+        if(id==='family'){
+          assert.match(await page.locator('.family-balance').textContent(),/RM\s*1,050/);
+          await page.locator('[data-family-person="Mummy"]').click();assert.ok(await page.getByText('Mummy savings').isVisible());
+          await page.locator('[data-family-person="Shared"]').click();assert.ok(await page.getByText('Shared example').isVisible());
+          await page.locator('[data-family-person="Daddy"]').click();await page.getByLabel('Search').fill('bonus');assert.equal(await page.locator('.family-entry').count(),1);assert.ok(await page.getByText('Example bonus').isVisible());
+          await page.getByLabel('Search').fill('');await page.locator('#family-sort').selectOption('amount');assert.ok((await page.locator('.family-entry').first().textContent()).includes('Example expense'));
+          await page.locator('[data-family-direction]').click();assert.ok((await page.locator('.family-entry').first().textContent()).includes('Example savings'));
+          await page.getByRole('button',{name:'Edit Example expense'}).click();await page.getByLabel('Amount (RM)').fill('99.00');await page.getByRole('button',{name:'Save',exact:true}).click();assert.match(await page.locator('.family-balance').textContent(),/RM\s*1,101/);
+          await page.getByRole('button',{name:'Delete Example expense'}).click();assert.equal(await page.getByText('Example expense').count(),0);
+          await page.locator('.mobile-nav [data-nav="more"]').click();await page.locator('.list-row').filter({hasText:'Example expense'}).getByRole('button',{name:'Restore'}).click();await page.locator('.content [data-nav="family"]').click();assert.ok(await page.getByText('Example expense').isVisible());
         }
         if(process.env.MOBILE_SCREENSHOTS&&width===390)await page.screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,`${id}.png`),fullPage:false});
       }
