@@ -140,7 +140,11 @@
 }
 
 .family-due-empty::before{content:'—'}
+.family-list-grouped{display:grid;gap:20px;overflow:visible;border:0;border-radius:0;background:transparent}
+.family-list-grouped .family-group{overflow:hidden;border:1px solid #e1e8df;border-radius:10px;background:#fffefa}
+.family-list-grouped>.family-list-total{border:1px solid #cbdccc;border-radius:10px}
 @media(max-width:900px){
+  .family-list-grouped{gap:16px}
   .family-entry,.family-list-total{grid-template-columns:minmax(0,1fr) minmax(96px,34%) 28px;column-gap:8px}
   .family-entry{padding:6px 12px;row-gap:0}
   .family-inline-cell{min-height:30px;padding:3px 4px}
