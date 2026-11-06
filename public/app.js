@@ -146,25 +146,41 @@ function budgetView(){
   <section class="card table-wrap budget-list">${costs.length?`<table class="budget-table"><thead><tr>${costHeaders.map(([key,label])=>sortHeader('cost',key,label,budgetSort)).join('')}<th scope="col" class="action-column">Actions</th></tr></thead><tbody>${costs.map(c=>`<tr><td>${inlineCell(c,'name',c.name,`<strong>${esc(c.name)}</strong>`)}${c.notes?`<div class="small muted">${esc(c.notes)}</div>`:''}${c.supplier?`<div class="small muted">${esc(c.supplier)}</div>`:''}</td><td>${inlineCell(c,'category',c.category,esc(c.category))}</td><td>${inlineCell(c,'phase',String(c.phase??''),String(c.phase??'')!==''?`Phase ${esc(c.phase)}`:'<span class="muted">Not set</span>')}</td><td>${inlineCell(c,'room',c.room||'',c.room?esc(c.room):'<span class="muted">Not set</span>')}</td><td>${inlineCell(c,'amount',amountValue(c.amount),money(c.amount))}</td><td>${inlineCell(c,'paid',amountValue(paidFor(c)),money(paidFor(c)))}</td><td class="action-column"><div class="budget-actions">${c.status==='agreed'?`<button class="button light sm" data-action="payment" data-id="${esc(c.id)}">Pay</button>`:''}<button class="button light sm" data-action="cost" data-id="${esc(c.id)}">Edit</button></div></td></tr>`).join('')}</tbody><tfoot><tr class="budget-total"><th scope="row" colspan="4">Total for displayed items</th><td>${money(costs.reduce((sum,c)=>sum+c.amount,0))}</td><td>${money(costs.reduce((sum,c)=>sum+paidFor(c),0))}</td><td></td></tr></tfoot></table>`:`<div class="empty">${allCosts.length?'No costs match these filters or search. Try another search or reset the filters.':'No costs yet. Add an estimate or an agreed cost to get started.'}</div>`}</section>
   <div class="section-title"><h2>Payment history</h2><span class="small muted">Net paid ${money(t.paid)}</span></div><section class="card table-wrap">${history.length?`<table class="payment-table"><thead><tr>${paymentHeaders.map(([key,label])=>sortHeader('payment',key,label,paymentSort)).join('')}<th scope="col">Actions</th></tr></thead><tbody>${history.map(p=>`<tr><td>${p.date?esc(p.date):'Date not provided'}</td><td>${esc(state.costs.find(c=>c.id===p.costId)?.name||'Unknown')}</td><td>${p.type==='correction'?'Paid total correction':p.type==='refund'?'Refund':'Payment'}</td><td>${esc(p.reference||'—')}</td><td>${p.type==='refund'?'−':''}${money(p.amount)}</td><td><button class="button light sm danger" data-action="${p.type==='correction'?'correction-delete':'payment-delete'}" data-id="${esc(p.id)}" aria-label="Delete ${p.type==='correction'?'paid correction':p.type} for ${esc(state.costs.find(c=>c.id===p.costId)?.name||'item')}">Delete</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Your deposits, payments and refunds will appear here.</div>'}</section>`;
 }
+function familyCell(item,field,display){
+  const label={name:'name',kind:'type',due:'timing',amount:'amount'}[field];
+  if(inlineEdit?.scope==='family'&&inlineEdit.id===item.id&&inlineEdit.field===field){
+    const aria=`${label[0].toUpperCase()+label.slice(1)} for ${esc(item.name)}`;
+    const choices=item.person==='Shared'?['shared','reference']:['available','expected','renovation','expense','refundable'];
+    const input=field==='kind'?`<select name="value" aria-label="${aria}">${choices.map(k=>`<option value="${k}"${selected(item.kind,k)}>${esc(FAMILY_KINDS[k])}</option>`).join('')}</select>`:`<input name="value" aria-label="${aria}" type="${field==='amount'?'number':'text'}" ${field==='amount'?'min="0" step="0.01" required':field==='name'?'maxlength="160" required':'maxlength="100"'} value="${esc(field==='amount'?amountValue(item.amount):item[field])}">`;
+    return `<form class="inline-form family-inline-form" data-family-inline-form="${field}" data-id="${esc(item.id)}">${input}<span class="inline-error" role="alert"></span></form>`;
+  }
+  return `<button type="button" class="family-inline-cell" data-family-inline-field="${field}" data-id="${esc(item.id)}" aria-label="Edit ${label} for ${esc(item.name)}">${display}</button>`;
+}
 function familyItems(){
   const query=familySearch.trim().toLocaleLowerCase();
   const filtered=state.familyFinances.filter(x=>!x.voided&&x.person===familyPerson&&(familyFilter==='all'||x.kind===familyFilter)&&(!query||[x.name,x.due,x.notes,FAMILY_KINDS[x.kind]].some(v=>String(v||'').toLocaleLowerCase().includes(query))));
   const getters={name:x=>x.name,amount:x=>x.amount,kind:x=>FAMILY_KINDS[x.kind],due:x=>x.due};
   const rows=sortRows(filtered,getters[familySort]||getters.name,familyDirection);
-  const total=rows.reduce((sum,x)=>sum+x.amount,0);
-  const entries=rows.length?`<div class="family-list-head" aria-hidden="true"><span>Item</span><span>Type</span><span>Timing</span><span>Amount</span><span></span></div>${rows.map(x=>`<button type="button" class="family-entry" data-action="family-entry" data-id="${esc(x.id)}" aria-label="Edit ${esc(x.name)}"><span class="family-entry-main"><strong>${esc(x.name)}</strong>${x.notes?`<span class="family-entry-note">${esc(x.notes)}</span>`:''}</span><span class="family-kind ${x.kind}">${esc(FAMILY_KINDS[x.kind])}</span><span class="family-due">${esc(x.due||'—')}</span><strong class="family-amount">${money(x.amount)}</strong><span class="family-edit-indicator" aria-hidden="true">›</span></button>`).join('')}`:'<div class="family-empty">No entries match. Add an entry, import a plan, or change your search.</div>';
-  return `${entries}<div class="family-list-total"><span><strong>Total displayed</strong><small>Sum of entries, not a balance</small></span><strong class="family-amount">${money(total)}</strong></div>`;
+  const total=list=>list.reduce((sum,x)=>sum+x.amount,0);
+  const row=x=>`<div class="family-entry"><div class="family-entry-main">${familyCell(x,'name',`<strong>${esc(x.name)}</strong>`)}${x.notes?`<span class="family-entry-note">${esc(x.notes)}</span>`:''}</div><div class="family-type">${familyCell(x,'kind',`<span class="family-kind ${x.kind}">${esc(FAMILY_KINDS[x.kind])}</span>`)}</div><div class="family-due">${familyCell(x,'due',esc(x.due||'—'))}</div><div class="family-amount">${familyCell(x,'amount',money(x.amount))}</div><button type="button" class="family-details" data-action="family-entry" data-id="${esc(x.id)}" aria-label="Edit ${esc(x.name)}" title="More details">⋯</button></div>`;
+  const table=list=>list.length?`<div class="family-list-head" aria-hidden="true"><span>Item</span><span>Type</span><span>Timing</span><span>Amount</span><span></span></div>${list.map(row).join('')}`:'<div class="family-empty">No matching entries.</div>';
+  const footer=(label,value,detail='')=>`<div class="family-list-total"><span><strong>${label}</strong>${detail?`<small>${detail}</small>`:''}</span><strong class="family-amount">${money(value)}</strong></div>`;
+  if(familyPerson==='Shared')return `${table(rows)}${footer('Total displayed',total(rows),'Sum of entries, not a balance')}`;
+  const incoming=rows.filter(x=>['available','expected'].includes(x.kind));
+  const outgoing=rows.filter(x=>['renovation','expense','refundable'].includes(x.kind));
+  const filteredView=!!query||familyFilter!=='all';
+  return `<section class="family-group"><div class="family-group-heading"><div><h3>Available &amp; expected</h3><p>Funds you have and income you expect</p></div><span>IN</span></div>${table(incoming)}${footer('Total available & expected',total(incoming))}</section><section class="family-group"><div class="family-group-heading"><div><h3>Planned spending</h3><p>Renovation, other expenses and refundable deposits</p></div><span>OUT</span></div>${table(outgoing)}${footer('Total planned spending',total(outgoing))}</section>${footer(filteredView?'Left in displayed entries':'Left after planned spending',total(incoming)-total(outgoing),filteredView?'Based on the current search and filter.':'Available and expected minus planned spending.')}`;
 }
 function familyView(){
   const summary=familySummary(state.familyFinances,familyPerson),shared=familyPerson==='Shared';
   const kinds=shared?['shared','reference']:['available','expected','renovation','expense','refundable'];
-  const metrics=shared?[["Shared expenses",summary.shared],["Daddy's half",summary.daddy],["Mummy's half",summary.mummy]]:[["Available now",summary.available],["Expected income",summary.expected],["Renovation",summary.renovation],["Other planned",summary.expenses+summary.deposits]];
+  const metrics=shared?[["Shared expenses",summary.shared],["Daddy's half",summary.daddy],["Mummy's half",summary.mummy]]:[["Available & expected",summary.available+summary.expected],["Planned spending",summary.renovation+summary.expenses+summary.deposits]];
   return `${heading('Plan together','Family finances','A simple place to plan for Daddy, Mummy and shared costs.','<div class="links"><button class="button light" data-action="family-import">Import plan</button><button class="button" data-action="family-entry">＋ Add entry</button></div>')}
   <input type="file" id="family-import-file" accept="application/json,.json" hidden>
   <div class="family-tabs" role="group" aria-label="Choose a family view">${FAMILY_PEOPLE.map(person=>`<button type="button" data-family-person="${person}" class="${person===familyPerson?'active':''}" aria-pressed="${person===familyPerson}">${person}</button>`).join('')}</div>
   <section class="family-overview"><div class="family-overview-top"><div><div class="eyebrow">${shared?'Planning together':esc(familyPerson)+"'s plan"}</div><h2>${shared?'A shared picture':'Projected balance'}</h2><p>${shared?'A 50/50 reference for shared expenses.':'Available funds + expected income − planned expenses and deposits.'}</p></div>${shared?'':`<strong class="family-balance">${money(summary.projected)}</strong>`}</div><div class="family-metrics">${metrics.map(([label,value])=>`<div><span>${esc(label)}</span><strong>${money(value)}</strong></div>`).join('')}</div>${!shared&&summary.deposits?`<p class="family-note">If refundable deposits are returned: <strong>${money(summary.ifReturned)}</strong> <span>(includes ${money(summary.deposits)} in deposits)</span></p>`:''}</section>
   <p class="family-disclaimer">${shared?'Shared figures are planning references and are not automatically added to either personal plan.':'Expected income and planned expenses are estimates. This plan is separate from the renovation Budget; update both when needed.'}</p>
-  <div class="section-title"><h2>${esc(familyPerson)} entries</h2></div><div class="family-controls"><label class="family-search">Search<input id="family-search" type="search" placeholder="Search entries" value="${esc(familySearch)}" autocomplete="off"></label><label>Show<select id="family-filter"><option value="all"${selected(familyFilter,'all')}>All entries</option>${kinds.map(k=>`<option value="${k}"${selected(familyFilter,k)}>${esc(FAMILY_KINDS[k])}</option>`).join('')}</select></label><label>Sort by<select id="family-sort"><option value="name"${selected(familySort,'name')}>Name</option><option value="amount"${selected(familySort,'amount')}>Amount</option><option value="kind"${selected(familySort,'kind')}>Type</option><option value="due"${selected(familySort,'due')}>Timing (A–Z)</option></select></label><button class="button light sm family-direction" type="button" data-family-direction>${familyDirection==='asc'?'Ascending ↑':'Descending ↓'}</button></div><p class="family-list-help">Select an entry to edit or delete it.</p><div id="family-list" class="family-list">${familyItems()}</div>`;
+  <div class="section-title"><h2>${esc(familyPerson)} entries</h2></div><div class="family-controls"><label class="family-search">Search<input id="family-search" type="search" placeholder="Search entries" value="${esc(familySearch)}" autocomplete="off"></label><label>Show<select id="family-filter"><option value="all"${selected(familyFilter,'all')}>All entries</option>${kinds.map(k=>`<option value="${k}"${selected(familyFilter,k)}>${esc(FAMILY_KINDS[k])}</option>`).join('')}</select></label><label>Sort by<select id="family-sort"><option value="name"${selected(familySort,'name')}>Name</option><option value="amount"${selected(familySort,'amount')}>Amount</option><option value="kind"${selected(familySort,'kind')}>Type</option><option value="due"${selected(familySort,'due')}>Timing (A–Z)</option></select></label><button class="button light sm family-direction" type="button" data-family-direction>${familyDirection==='asc'?'Ascending ↑':'Descending ↓'}</button></div><p class="family-list-help">Select a name, type, timing or amount to edit it. Use ⋯ for more details or to delete.</p><div id="family-list" class="family-list">${familyItems()}</div>`;
 }
 function familyForm(id){
   const existing=id?state.familyFinances.find(x=>x.id===id&&!x.voided):null;if(id&&!existing)return;
@@ -310,17 +326,17 @@ function searchBudget(input){
 }
 app.addEventListener('input',e=>{if(e.target.id==='task-search'){const start=e.target.selectionStart;filterText=e.target.value;render();const input=document.querySelector('#task-search');input.focus();input.setSelectionRange(start,start);}else if(e.target.id==='budget-search'&&!e.isComposing)searchBudget(e.target);});
 app.addEventListener('compositionend',e=>{if(e.target.id==='budget-search')searchBudget(e.target);});
-function searchFamily(input){familySearch=input.value;const list=document.querySelector('#family-list');if(list)list.innerHTML=familyItems();}
+function searchFamily(input){if(inlineEdit){input.value=familySearch;notify('Correct the current field or press Esc to cancel.');return;}familySearch=input.value;const list=document.querySelector('#family-list');if(list)list.innerHTML=familyItems();}
 app.addEventListener('input',e=>{if(e.target.id==='family-search'&&!e.isComposing)searchFamily(e.target);});
 app.addEventListener('compositionend',e=>{if(e.target.id==='family-search')searchFamily(e.target);});
 app.addEventListener('click',e=>{
   const person=e.target.closest('[data-family-person]');
-  if(person&&FAMILY_PEOPLE.includes(person.dataset.familyPerson)){familyPerson=person.dataset.familyPerson;familyFilter='all';familySearch='';render();document.querySelector(`[data-family-person="${familyPerson}"]`)?.focus();return;}
-  if(e.target.closest('[data-family-direction]')){familyDirection=familyDirection==='asc'?'desc':'asc';render();document.querySelector('[data-family-direction]')?.focus();}
+  if(person&&FAMILY_PEOPLE.includes(person.dataset.familyPerson)){if(inlineEdit){notify('Correct the current field or press Esc to cancel.');return;}familyPerson=person.dataset.familyPerson;familyFilter='all';familySearch='';render();document.querySelector(`[data-family-person="${familyPerson}"]`)?.focus();return;}
+  if(e.target.closest('[data-family-direction]')){if(inlineEdit){notify('Correct the current field or press Esc to cancel.');return;}familyDirection=familyDirection==='asc'?'desc':'asc';render();document.querySelector('[data-family-direction]')?.focus();}
 });
 app.addEventListener('change',async e=>{
-  if(e.target.id==='family-filter'){familyFilter=e.target.value;render();document.querySelector('#family-filter')?.focus();return;}
-  if(e.target.id==='family-sort'){if(!['name','amount','kind','due'].includes(e.target.value))return;familySort=e.target.value;render();document.querySelector('#family-sort')?.focus();return;}
+  if(e.target.id==='family-filter'){if(inlineEdit){e.target.value=familyFilter;notify('Correct the current field or press Esc to cancel.');return;}familyFilter=e.target.value;render();document.querySelector('#family-filter')?.focus();return;}
+  if(e.target.id==='family-sort'){if(inlineEdit){e.target.value=familySort;notify('Correct the current field or press Esc to cancel.');return;}if(!['name','amount','kind','due'].includes(e.target.value))return;familySort=e.target.value;render();document.querySelector('#family-sort')?.focus();return;}
   if(e.target.id!=='family-import-file'||!e.target.files?.[0])return;
   try{
     const file=e.target.files[0];if(file.size>128*1024)throw Error('Finance plan file is too large.');
@@ -389,6 +405,36 @@ app.addEventListener('submit',e=>{const form=e.target.closest('[data-inline-form
 app.addEventListener('change',e=>{if(e.target.tagName==='SELECT'){const form=e.target.closest('[data-inline-form]');if(form)saveInline(form);}});
 app.addEventListener('focusout',e=>{const form=e.target.closest('[data-inline-form]');if(form&&!form.contains(e.relatedTarget))saveInline(form,true);});
 app.addEventListener('keydown',e=>{if(e.key==='Escape'&&inlineEdit&&e.target.closest('[data-inline-form]')){e.preventDefault();inlineEdit=null;render();}});
+app.addEventListener('click',e=>{
+  const button=e.target.closest('[data-family-inline-field]');if(!button)return;
+  if(inlineEdit){notify('Correct the current field or press Esc to cancel.');return;}
+  const field=button.dataset.familyInlineField,id=button.dataset.id;
+  if(!['name','kind','due','amount'].includes(field)||!state.familyFinances.some(x=>x.id===id&&!x.voided))return;
+  inlineEdit={scope:'family',id,field};render();document.querySelector('.family-inline-form [name="value"]')?.focus();
+});
+function saveFamilyInline(form,deferRender=false){
+  if(!form)return false;
+  const {familyInlineForm:field,id}=form.dataset;
+  if(inlineEdit?.scope!=='family'||inlineEdit.id!==id||inlineEdit.field!==field)return false;
+  const item=state.familyFinances.find(x=>x.id===id&&!x.voided);if(!item)return false;
+  const value=String(form.elements.namedItem('value').value).trim(),error=form.querySelector('.inline-error');
+  const amount=field==='amount'?parseMoney(value):null;
+  if(field==='amount'&&amount===null){error.textContent='Enter a valid amount with up to two decimal places.';return false;}
+  const updated={...item,[field]:field==='amount'?amount:value};
+  if(!validFamilyEntries([updated])){error.textContent=field==='name'?'Enter a name.':'Enter a valid value.';return false;}
+  if(loadError){error.textContent=loadError;return false;}
+  const changed=item[field]!==updated[field];
+  if(changed)item[field]=updated[field];
+  inlineEdit=null;
+  const saved=!changed||save();
+  if(changed&&saved)notify(cloud?'Saving to cloud…':'Saved on this device');
+  if(deferRender)setTimeout(()=>{if(page==='family'&&!inlineEdit&&!dialog.open)render();},0);else render();
+  return saved;
+}
+app.addEventListener('submit',e=>{const form=e.target.closest('[data-family-inline-form]');if(!form)return;e.preventDefault();saveFamilyInline(form);});
+app.addEventListener('change',e=>{if(e.target.tagName==='SELECT'){const form=e.target.closest('[data-family-inline-form]');if(form)saveFamilyInline(form);}});
+app.addEventListener('focusout',e=>{const form=e.target.closest('[data-family-inline-form]');if(form&&!form.contains(e.relatedTarget)&&!saveFamilyInline(form,true))setTimeout(()=>{if(inlineEdit?.scope==='family')form.elements.namedItem('value')?.focus();},0);});
+app.addEventListener('keydown',e=>{if(e.key==='Escape'&&inlineEdit?.scope==='family'&&e.target.closest('[data-family-inline-form]')){e.preventDefault();inlineEdit=null;render();}});
 app.addEventListener('click',e=>{
   if(!e.target.closest('[data-reset-filters]'))return;
   if(inlineEdit){notify('Correct the current field or press Esc to cancel.');return;}
