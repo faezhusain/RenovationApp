@@ -1,5 +1,5 @@
 export const FAMILY_PEOPLE=['Daddy','Mummy','Shared'];
-export const FAMILY_KINDS={available:'Available funds',expected:'Expected income',renovation:'Renovation allocation',expense:'Other planned expense',refundable:'Refundable deposit',shared:'Shared expense',reference:'Reference only'};
+export const FAMILY_KINDS={available:'Available funds',expected:'Expected income',renovation:'Renovation/Moving In',expense:'Other planned expense',refundable:'Refundable deposit',shared:'Shared expense',reference:'Reference only'};
 
 export function validFamilyEntries(entries){
   if(!Array.isArray(entries)||entries.length>5000)return false;
