@@ -32,3 +32,9 @@ test('write requests require an allowed origin, valid project and version precon
   assert.equal((await handler(request('PUT',{version:1},{'x-project-version':'new'}))).status,400);
   assert.equal((await handler(new Request('https://app.example/api/project',{method:'POST'}))).status,405);
 });
+test('custom family types are saved and invalid type data is rejected',async()=>{
+  const {handler}=fixture();const data=project('Family');data.familyTypes=[{section:'incoming',name:'Gift'}];data.familyFinances=[{id:'gift',person:'Mummy',kind:'available',customType:'Gift',name:'Gift from family',amount:1000,due:'',notes:''}];
+  const saved=await handler(request('PUT',data,{'x-project-version':'new'}));assert.equal(saved.status,204);
+  const read=await (await handler(request('GET'))).json();assert.deepEqual(read.familyTypes,data.familyTypes);assert.deepEqual(read.familyFinances,data.familyFinances);
+  data.familyTypes=[{section:'unknown',name:'Gift'}];assert.equal((await handler(request('PUT',data,{'x-project-version':saved.headers.get('x-project-version')}))).status,400);
+});

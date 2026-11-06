@@ -1,6 +1,15 @@
 export const FAMILY_PEOPLE=['Daddy','Mummy','Shared'];
 export const FAMILY_KINDS={available:'Available funds',expected:'Expected income',renovation:'Renovation/Moving In',expense:'Other planned expense',refundable:'Refundable deposit',shared:'Shared expense',reference:'Reference only'};
 
+export function validFamilyTypes(types){
+  if(!Array.isArray(types)||types.length>500)return false;
+  const seen=new Set();
+  return types.every(t=>{
+    if(!t||!['incoming','outgoing','shared'].includes(t.section)||typeof t.name!=='string'||!t.name.trim()||t.name!==t.name.trim()||t.name.length>80)return false;
+    const key=`${t.section}:${t.name.toLocaleLowerCase()}`;if(seen.has(key))return false;seen.add(key);return true;
+  });
+}
+
 export function validFamilyEntries(entries){
   if(!Array.isArray(entries)||entries.length>5000)return false;
   const ids=new Set();
@@ -10,7 +19,8 @@ export function validFamilyEntries(entries){
     const allowed=x.person==='Shared'?['shared','reference']:['available','expected','renovation','expense','refundable'];
     return FAMILY_PEOPLE.includes(x.person)&&allowed.includes(x.kind)&&typeof x.name==='string'&&x.name.trim().length>0&&x.name.length<=160&&
       Number.isSafeInteger(x.amount)&&x.amount>=0&&x.amount<=900000000000&&typeof x.due==='string'&&x.due.length<=100&&
-      typeof x.notes==='string'&&x.notes.length<=500&&(x.voided===undefined||typeof x.voided==='boolean');
+      typeof x.notes==='string'&&x.notes.length<=500&&(x.voided===undefined||typeof x.voided==='boolean')&&
+      (x.customType===undefined||(typeof x.customType==='string'&&x.customType===x.customType.trim()&&x.customType.length>0&&x.customType.length<=80&&['available','expense','shared'].includes(x.kind)));
   });
 }
 

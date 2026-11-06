@@ -146,23 +146,34 @@ function budgetView(){
   <section class="card table-wrap budget-list">${costs.length?`<table class="budget-table"><thead><tr>${costHeaders.map(([key,label])=>sortHeader('cost',key,label,budgetSort)).join('')}<th scope="col" class="action-column">Actions</th></tr></thead><tbody>${costs.map(c=>`<tr><td>${inlineCell(c,'name',c.name,`<strong>${esc(c.name)}</strong>`)}${c.notes?`<div class="small muted">${esc(c.notes)}</div>`:''}${c.supplier?`<div class="small muted">${esc(c.supplier)}</div>`:''}</td><td>${inlineCell(c,'category',c.category,esc(c.category))}</td><td>${inlineCell(c,'phase',String(c.phase??''),String(c.phase??'')!==''?`Phase ${esc(c.phase)}`:'<span class="muted">Not set</span>')}</td><td>${inlineCell(c,'room',c.room||'',c.room?esc(c.room):'<span class="muted">Not set</span>')}</td><td>${inlineCell(c,'amount',amountValue(c.amount),money(c.amount))}</td><td>${inlineCell(c,'paid',amountValue(paidFor(c)),money(paidFor(c)))}</td><td class="action-column"><div class="budget-actions">${c.status==='agreed'?`<button class="button light sm" data-action="payment" data-id="${esc(c.id)}">Pay</button>`:''}<button class="button light sm" data-action="cost" data-id="${esc(c.id)}">Edit</button></div></td></tr>`).join('')}</tbody><tfoot><tr class="budget-total"><th scope="row" colspan="4">Total for displayed items</th><td>${money(costs.reduce((sum,c)=>sum+c.amount,0))}</td><td>${money(costs.reduce((sum,c)=>sum+paidFor(c),0))}</td><td></td></tr></tfoot></table>`:`<div class="empty">${allCosts.length?'No costs match these filters or search. Try another search or reset the filters.':'No costs yet. Add an estimate or an agreed cost to get started.'}</div>`}</section>
   <div class="section-title"><h2>Payment history</h2><span class="small muted">Net paid ${money(t.paid)}</span></div><section class="card table-wrap">${history.length?`<table class="payment-table"><thead><tr>${paymentHeaders.map(([key,label])=>sortHeader('payment',key,label,paymentSort)).join('')}<th scope="col">Actions</th></tr></thead><tbody>${history.map(p=>`<tr><td>${p.date?esc(p.date):'Date not provided'}</td><td>${esc(state.costs.find(c=>c.id===p.costId)?.name||'Unknown')}</td><td>${p.type==='correction'?'Paid total correction':p.type==='refund'?'Refund':'Payment'}</td><td>${esc(p.reference||'—')}</td><td>${p.type==='refund'?'−':''}${money(p.amount)}</td><td><button class="button light sm danger" data-action="${p.type==='correction'?'correction-delete':'payment-delete'}" data-id="${esc(p.id)}" aria-label="Delete ${p.type==='correction'?'paid correction':p.type} for ${esc(state.costs.find(c=>c.id===p.costId)?.name||'item')}">Delete</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Your deposits, payments and refunds will appear here.</div>'}</section>`;
 }
+function familySection(item){return item.person==='Shared'?'shared':['available','expected'].includes(item.kind)?'incoming':'outgoing';}
+function familyTypeKey(item){return item.customType?`custom:${familySection(item)}:${item.customType}`:item.kind;}
+function familyTypeLabel(item){return item.customType||FAMILY_KINDS[item.kind];}
+function familyCustomTypes(section){
+  const types=[...state.familyTypes,...state.familyFinances.filter(x=>x.customType).map(x=>({section:familySection(x),name:x.customType}))];
+  const seen=new Set();return types.filter(t=>{const key=t.name.toLocaleLowerCase();if(t.section!==section||seen.has(key))return false;seen.add(key);return true;}).sort((a,b)=>a.name.localeCompare(b.name));
+}
+function familyTypeOptions(section,current,includeNew=false){
+  const kinds=section==='shared'?['shared','reference']:section==='incoming'?['available','expected']:['renovation','expense','refundable'];
+  return kinds.map(k=>`<option value="${k}"${selected(current,k)}>${esc(FAMILY_KINDS[k])}</option>`).join('')+familyCustomTypes(section).map(t=>{const key=`custom:${section}:${t.name}`;return `<option value="${esc(key)}"${selected(current,key)}>${esc(t.name)}</option>`;}).join('')+(includeNew?`<option value="__new__"${selected(current,'__new__')}>＋ Add another type…</option>`:'');
+}
 function familyCell(item,field,display){
   const label={name:'name',kind:'type',due:'timing',amount:'amount'}[field];
   if(inlineEdit?.scope==='family'&&inlineEdit.id===item.id&&inlineEdit.field===field){
     const aria=`${label[0].toUpperCase()+label.slice(1)} for ${esc(item.name)}`;
-    const choices=item.person==='Shared'?['shared','reference']:['available','expected','renovation','expense','refundable'];
-    const input=field==='kind'?`<select name="value" aria-label="${aria}">${choices.map(k=>`<option value="${k}"${selected(item.kind,k)}>${esc(FAMILY_KINDS[k])}</option>`).join('')}</select>`:`<input name="value" aria-label="${aria}" type="${field==='amount'?'number':'text'}" ${field==='amount'?'min="0" step="0.01" required':field==='name'?'maxlength="160" required':'maxlength="100"'} value="${esc(field==='amount'?amountValue(item.amount):item[field])}">`;
+    const sections=item.person==='Shared'?['shared']:['incoming','outgoing'];
+    const input=field==='kind'?`<select name="value" aria-label="${aria}">${sections.map(section=>familyTypeOptions(section,familyTypeKey(item))).join('')}<option value="__new__">＋ Add another type…</option></select>`:`<input name="value" aria-label="${aria}" type="${field==='amount'?'number':'text'}" ${field==='amount'?'min="0" step="0.01" required':field==='name'?'maxlength="160" required':'maxlength="100"'} value="${esc(field==='amount'?amountValue(item.amount):item[field])}">`;
     return `<form class="inline-form family-inline-form" data-family-inline-form="${field}" data-id="${esc(item.id)}">${input}<span class="inline-error" role="alert"></span></form>`;
   }
   return `<button type="button" class="family-inline-cell" data-family-inline-field="${field}" data-id="${esc(item.id)}" aria-label="Edit ${label} for ${esc(item.name)}">${display}</button>`;
 }
 function familyItems(){
   const query=familySearch.trim().toLocaleLowerCase();
-  const filtered=state.familyFinances.filter(x=>!x.voided&&x.person===familyPerson&&(familyFilter==='all'||x.kind===familyFilter)&&(!query||[x.name,x.due,x.notes,FAMILY_KINDS[x.kind]].some(v=>String(v||'').toLocaleLowerCase().includes(query))));
-  const getters={name:x=>x.name,amount:x=>x.amount,kind:x=>FAMILY_KINDS[x.kind],due:x=>x.due};
+  const filtered=state.familyFinances.filter(x=>!x.voided&&x.person===familyPerson&&(familyFilter==='all'||familyTypeKey(x)===familyFilter)&&(!query||[x.name,x.due,x.notes,familyTypeLabel(x)].some(v=>String(v||'').toLocaleLowerCase().includes(query))));
+  const getters={name:x=>x.name,amount:x=>x.amount,kind:x=>familyTypeLabel(x),due:x=>x.due};
   const rows=sortRows(filtered,getters[familySort]||getters.name,familyDirection);
   const total=list=>list.reduce((sum,x)=>sum+x.amount,0);
-  const row=x=>`<div class="family-entry"><div class="family-entry-main">${familyCell(x,'name',`<strong>${esc(x.name)}</strong>`)}${x.notes?`<span class="family-entry-note">${esc(x.notes)}</span>`:''}</div><div class="family-type">${familyCell(x,'kind',`<span class="family-kind ${x.kind}">${esc(FAMILY_KINDS[x.kind])}</span>`)}</div><div class="family-due">${familyCell(x,'due',esc(x.due||'—'))}</div><div class="family-amount">${familyCell(x,'amount',money(x.amount))}</div><button type="button" class="family-details" data-action="family-entry" data-id="${esc(x.id)}" aria-label="Edit ${esc(x.name)}" title="More details">⋯</button></div>`;
+  const row=x=>`<div class="family-entry"><div class="family-entry-main">${familyCell(x,'name',`<strong>${esc(x.name)}</strong>`)}${x.notes?`<span class="family-entry-note">${esc(x.notes)}</span>`:''}</div><div class="family-type">${familyCell(x,'kind',`<span class="family-kind ${x.kind}">${esc(familyTypeLabel(x))}</span>`)}</div><div class="family-due">${familyCell(x,'due',esc(x.due||'—'))}</div><div class="family-amount">${familyCell(x,'amount',money(x.amount))}</div><button type="button" class="family-details" data-action="family-entry" data-id="${esc(x.id)}" aria-label="Edit ${esc(x.name)}" title="More details">⋯</button></div>`;
   const table=list=>list.length?`<div class="family-list-head" aria-hidden="true"><span>Item</span><span>Type</span><span>Timing</span><span>Amount</span><span></span></div>${list.map(row).join('')}`:'<div class="family-empty">No matching entries.</div>';
   const footer=(label,value,detail='')=>`<div class="family-list-total"><span><strong>${label}</strong>${detail?`<small>${detail}</small>`:''}</span><strong class="family-amount">${money(value)}</strong></div>`;
   if(familyPerson==='Shared')return `${table(rows)}${footer('Total displayed',total(rows),'Sum of entries, not a balance')}`;
@@ -173,27 +184,41 @@ function familyItems(){
 }
 function familyView(){
   const summary=familySummary(state.familyFinances,familyPerson),shared=familyPerson==='Shared';
-  const kinds=shared?['shared','reference']:['available','expected','renovation','expense','refundable'];
+  const sections=shared?['shared']:['incoming','outgoing'];
   const metrics=shared?[["Shared expenses",summary.shared],["Daddy's half",summary.daddy],["Mummy's half",summary.mummy]]:[["Available & expected",summary.available+summary.expected],["Planned spending",summary.renovation+summary.expenses+summary.deposits]];
   return `${heading('Plan together','Family finances','A simple place to plan for Daddy, Mummy and shared costs.','<div class="links"><button class="button light" data-action="family-import">Import plan</button><button class="button" data-action="family-entry">＋ Add entry</button></div>')}
   <input type="file" id="family-import-file" accept="application/json,.json" hidden>
   <div class="family-tabs" role="group" aria-label="Choose a family view">${FAMILY_PEOPLE.map(person=>`<button type="button" data-family-person="${person}" class="${person===familyPerson?'active':''}" aria-pressed="${person===familyPerson}">${person}</button>`).join('')}</div>
   <section class="family-overview"><div class="family-overview-top"><div><div class="eyebrow">${shared?'Planning together':esc(familyPerson)+"'s plan"}</div><h2>${shared?'A shared picture':'Projected balance'}</h2><p>${shared?'A 50/50 reference for shared expenses.':'Available funds + expected income − planned expenses and deposits.'}</p></div>${shared?'':`<strong class="family-balance">${money(summary.projected)}</strong>`}</div><div class="family-metrics">${metrics.map(([label,value])=>`<div><span>${esc(label)}</span><strong>${money(value)}</strong></div>`).join('')}</div>${!shared&&summary.deposits?`<p class="family-note">If refundable deposits are returned: <strong>${money(summary.ifReturned)}</strong> <span>(includes ${money(summary.deposits)} in deposits)</span></p>`:''}</section>
   <p class="family-disclaimer">${shared?'Shared figures are planning references and are not automatically added to either personal plan.':'Expected income and planned expenses are estimates. This plan is separate from the renovation Budget; update both when needed.'}</p>
-  <div class="section-title"><h2>${esc(familyPerson)} entries</h2></div><div class="family-controls"><label class="family-search">Search<input id="family-search" type="search" placeholder="Search entries" value="${esc(familySearch)}" autocomplete="off"></label><label>Show<select id="family-filter"><option value="all"${selected(familyFilter,'all')}>All entries</option>${kinds.map(k=>`<option value="${k}"${selected(familyFilter,k)}>${esc(FAMILY_KINDS[k])}</option>`).join('')}</select></label><label>Sort by<select id="family-sort"><option value="name"${selected(familySort,'name')}>Name</option><option value="amount"${selected(familySort,'amount')}>Amount</option><option value="kind"${selected(familySort,'kind')}>Type</option><option value="due"${selected(familySort,'due')}>Timing (A–Z)</option></select></label><button class="button light sm family-direction" type="button" data-family-direction>${familyDirection==='asc'?'Ascending ↑':'Descending ↓'}</button></div><p class="family-list-help">Select a name, type, timing or amount to edit it. Use ⋯ for more details or to delete.</p><div id="family-list" class="family-list">${familyItems()}</div>`;
+  <div class="section-title"><h2>${esc(familyPerson)} entries</h2></div><div class="family-controls"><label class="family-search">Search<input id="family-search" type="search" placeholder="Search entries" value="${esc(familySearch)}" autocomplete="off"></label><label>Show<select id="family-filter"><option value="all"${selected(familyFilter,'all')}>All entries</option>${sections.map(s=>familyTypeOptions(s,familyFilter)).join('')}</select></label><label>Sort by<select id="family-sort"><option value="name"${selected(familySort,'name')}>Name</option><option value="amount"${selected(familySort,'amount')}>Amount</option><option value="kind"${selected(familySort,'kind')}>Type</option><option value="due"${selected(familySort,'due')}>Timing (A–Z)</option></select></label><button class="button light sm family-direction" type="button" data-family-direction>${familyDirection==='asc'?'Ascending ↑':'Descending ↓'}</button></div><p class="family-list-help">Select a name, type, timing or amount to edit it. Use ⋯ for more details or to delete.</p><div id="family-list" class="family-list">${familyItems()}</div>`;
 }
-function familyForm(id){
+function familyForm(id,chooseNew=false){
   const existing=id?state.familyFinances.find(x=>x.id===id&&!x.voided):null;if(id&&!existing)return;
   const item=existing||{person:familyPerson,kind:familyPerson==='Shared'?'shared':'expense',name:'',amount:0,due:'',notes:''};
-  const kindsFor=person=>person==='Shared'?['shared','reference']:['available','expected','renovation','expense','refundable'];
-  const kindOptions=(person,current)=>kindsFor(person).map(k=>`<option value="${k}"${selected(current,k)}>${esc(FAMILY_KINDS[k])}</option>`).join('');
-  openDialog(existing?'Edit finance entry':'Add finance entry',`<div class="form-grid"><label>Person<select name="person">${FAMILY_PEOPLE.map(person=>`<option${selected(item.person,person)}>${person}</option>`).join('')}</select></label><label>Type<select name="kind">${kindOptions(item.person,item.kind)}</select></label>${field('Name','name',item.name,'text','required maxlength="160"')}${field('Amount (RM)','amount',amountValue(item.amount),'number','min="0" step="0.01" required')}${field('Timing (optional)','due',item.due,'text','maxlength="100"')}<label class="full">Notes<textarea name="notes" maxlength="500">${esc(item.notes)}</textarea></label></div><p class="notice" style="margin-top:15px">Shared expenses are a separate reference. A refundable deposit is a planned outflow; its potential return is shown separately.</p>`);
+  const section=familySection(item),sectionOptions=(person,current)=>person==='Shared'?'<option value="shared">Shared</option>':`<option value="incoming"${selected(current,'incoming')}>Available funds &amp; expected income</option><option value="outgoing"${selected(current,'outgoing')}>Planned spending</option>`;
+  openDialog(existing?'Edit finance entry':'Add finance entry',`<div class="form-grid"><label>Person<select name="person">${FAMILY_PEOPLE.map(person=>`<option${selected(item.person,person)}>${person}</option>`).join('')}</select></label><label>Section<select name="section">${sectionOptions(item.person,section)}</select></label><label>Type<select name="kind">${familyTypeOptions(section,chooseNew?'__new__':familyTypeKey(item),true)}</select></label><label data-family-new-type hidden>New type<input name="customType" type="text" maxlength="80" placeholder="Enter a type name"></label>${field('Name','name',item.name,'text','required maxlength="160"')}${field('Amount (RM)','amount',amountValue(item.amount),'number','min="0" step="0.01" required')}${field('Timing (optional)','due',item.due,'text','maxlength="100"')}<label class="full">Notes<textarea name="notes" maxlength="500">${esc(item.notes)}</textarea></label></div><p class="notice" style="margin-top:15px">Shared expenses are a separate reference. A refundable deposit is a planned outflow; its potential return is shown separately.</p>`);
   if(existing)addDeleteToDialog('Delete entry',()=>deleteEntry('family',id));
   const form=document.querySelector('#modal-form');
-  form.elements.namedItem('person').onchange=()=>{const person=form.elements.namedItem('person').value;const kinds=form.elements.namedItem('kind');kinds.innerHTML=kindOptions(person,kinds.value);};
+  const personInput=form.elements.namedItem('person'),sectionInput=form.elements.namedItem('section'),typeInput=form.elements.namedItem('kind'),newTypeInput=form.elements.namedItem('customType'),newTypeLabel=form.querySelector('[data-family-new-type]');
+  const updateNewType=()=>{const adding=typeInput.value==='__new__';newTypeLabel.hidden=!adding;newTypeInput.required=adding;};
+  const updateTypes=current=>{typeInput.innerHTML=familyTypeOptions(sectionInput.value,current,true);updateNewType();};
+  personInput.onchange=()=>{const current=sectionInput.value;sectionInput.innerHTML=sectionOptions(personInput.value,current==='shared'?'outgoing':current);updateTypes('');};
+  sectionInput.onchange=()=>updateTypes('');typeInput.onchange=updateNewType;updateNewType();
   form.onsubmit=e=>{e.preventDefault();const f=new FormData(form),amount=parseMoney(f.get('amount'));if(amount===null)return fail('Enter a valid amount with up to two decimal places.');
-    const record={id:existing?.id||uid(),person:String(f.get('person')),kind:String(f.get('kind')),name:String(f.get('name')).trim(),amount,due:String(f.get('due')).trim(),notes:String(f.get('notes')).trim()};
+    const currentSection=String(f.get('section')),choice=String(f.get('kind')),newName=String(f.get('customType')||'').trim();
+    let customName='',kind=choice;
+    if(choice==='__new__'){
+      if(!newName)return fail('Enter a name for the new type.');
+      if(Object.values(FAMILY_KINDS).some(x=>x.toLocaleLowerCase()===newName.toLocaleLowerCase()))return fail('That type already exists. Select it from the list.');
+      customName=familyCustomTypes(currentSection).find(t=>t.name.toLocaleLowerCase()===newName.toLocaleLowerCase())?.name||newName;
+    }else if(choice.startsWith(`custom:${currentSection}:`))customName=choice.slice(`custom:${currentSection}:`.length);
+    if(customName)kind=currentSection==='incoming'?'available':currentSection==='outgoing'?'expense':'shared';
+    const record={...existing,id:existing?.id||uid(),person:String(f.get('person')),kind,name:String(f.get('name')).trim(),amount,due:String(f.get('due')).trim(),notes:String(f.get('notes')).trim()};
+    if(customName)record.customType=customName;else delete record.customType;
     if(!validFamilyEntries([record]))return fail('Enter a name and choose a type that matches the person.');
+    if(familySection(record)!==currentSection)return fail('Choose a type for the selected section.');
+    if(customName&&!state.familyTypes.some(t=>t.section===currentSection&&t.name.toLocaleLowerCase()===customName.toLocaleLowerCase())){if(state.familyTypes.length>=500)return fail('You have reached the limit for custom types.');state.familyTypes.push({section:currentSection,name:customName});}
     if(existing)state.familyFinances[state.familyFinances.findIndex(x=>x.id===id)]=record;else state.familyFinances.push(record);
     familyPerson=record.person;familyFilter='all';familySearch='';endSave();
   };
@@ -418,13 +443,20 @@ function saveFamilyInline(form,deferRender=false){
   if(inlineEdit?.scope!=='family'||inlineEdit.id!==id||inlineEdit.field!==field)return false;
   const item=state.familyFinances.find(x=>x.id===id&&!x.voided);if(!item)return false;
   const value=String(form.elements.namedItem('value').value).trim(),error=form.querySelector('.inline-error');
+  if(field==='kind'&&value==='__new__'){inlineEdit=null;render();familyForm(id,true);return true;}
   const amount=field==='amount'?parseMoney(value):null;
   if(field==='amount'&&amount===null){error.textContent='Enter a valid amount with up to two decimal places.';return false;}
   const updated={...item,[field]:field==='amount'?amount:value};
+  if(field==='kind'){
+    const sections=item.person==='Shared'?['shared']:['incoming','outgoing'];
+    const custom=sections.flatMap(section=>familyCustomTypes(section).map(t=>({section,name:t.name,key:`custom:${section}:${t.name}`}))).find(t=>t.key===value);
+    if(custom){updated.kind=custom.section==='incoming'?'available':custom.section==='outgoing'?'expense':'shared';updated.customType=custom.name;}
+    else delete updated.customType;
+  }
   if(!validFamilyEntries([updated])){error.textContent=field==='name'?'Enter a name.':'Enter a valid value.';return false;}
   if(loadError){error.textContent=loadError;return false;}
-  const changed=item[field]!==updated[field];
-  if(changed)item[field]=updated[field];
+  const changed=field==='kind'?familyTypeKey(item)!==familyTypeKey(updated):item[field]!==updated[field];
+  if(changed){if(field==='kind'){item.kind=updated.kind;if(updated.customType)item.customType=updated.customType;else delete item.customType;}else item[field]=updated[field];}
   inlineEdit=null;
   const saved=!changed||save();
   if(changed&&saved)notify(cloud?'Saving to cloud…':'Saved on this device');
