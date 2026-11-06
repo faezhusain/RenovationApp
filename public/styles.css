@@ -138,3 +138,13 @@
   .family-entry-main{grid-area:name}.family-type{grid-area:kind}.family-due{grid-area:due}.family-amount{grid-area:amount}.family-details{grid-area:action}
   .family-list-total{grid-template-columns:minmax(0,1fr) auto 28px;gap:8px}.family-list-total .family-amount{grid-area:auto;grid-column:2}
 }
+
+.family-due-empty::before{content:'—'}
+@media(max-width:900px){
+  .family-entry,.family-list-total{grid-template-columns:minmax(0,1fr) minmax(96px,34%) 28px;column-gap:8px}
+  .family-entry{padding:6px 12px;row-gap:0}
+  .family-inline-cell{min-height:30px;padding:3px 4px}
+  .family-entry .family-kind{padding:3px 7px}
+  .family-due .family-inline-cell{text-align:right}
+  .family-due-empty::before{content:'Add timing';color:#97a49a}
+}
