@@ -140,10 +140,13 @@
 }
 
 .family-due-empty::before{content:'—'}
+.budget-family-totals{grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 10px}
+.budget-family-metric,.budget-paid-metric{min-width:0;min-height:0}.budget-family-metric .value{overflow-wrap:anywhere}.budget-family-metric label{margin-top:12px;color:#738177;font-size:11px}.budget-family-metric select{min-width:0;padding:8px;font-size:12px;font-weight:400}.budget-family-explanation{margin:0 0 18px;color:#78857c;font-size:12px;line-height:1.5}
 .family-list-grouped{display:grid;gap:20px;overflow:visible;border:0;border-radius:0;background:transparent}
 .family-list-grouped .family-group{overflow:hidden;border:1px solid #e1e8df;border-radius:10px;background:#fffefa}
 .family-list-grouped>.family-list-total{border:1px solid #cbdccc;border-radius:10px}
 @media(max-width:900px){
+  .budget-family-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.budget-paid-metric{grid-column:1/-1}
   .family-list-grouped{gap:16px}
   .family-entry,.family-list-total{grid-template-columns:minmax(0,1fr) minmax(96px,34%) 28px;column-gap:8px}
   .family-entry{padding:6px 12px;row-gap:0}

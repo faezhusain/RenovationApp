@@ -1,6 +1,16 @@
 export const FAMILY_PEOPLE=['Daddy','Mummy','Shared'];
 export const FAMILY_KINDS={available:'Available funds',expected:'Expected income',renovation:'Renovation/Moving In',expense:'Other planned expense',refundable:'Refundable deposit',shared:'Shared expense',reference:'Reference only'};
 
+// An explicit choice always wins; only unambiguous balance names are auto-linked.
+export function renovationBalanceLink(entries,links,person){
+  const candidates=entries.filter(x=>!x.voided&&x.person===person&&['renovation','expense','refundable'].includes(x.kind));
+  const explicit=links&&Object.hasOwn(links,person);
+  if(explicit){const id=links[person];return {candidates,entry:candidates.find(x=>x.id===id)||null,missing:Boolean(id&&!candidates.some(x=>x.id===id))};}
+  const names=new Set(['balance renovation expense','balance renovation expenses','remaining renovation expense','remaining renovation expenses','renovation expense balance','renovation expenses balance','renovation balance']);
+  const matches=candidates.filter(x=>names.has(x.name.trim().toLocaleLowerCase().replace(/\s+/g,' ')));
+  return {candidates,entry:matches.length===1?matches[0]:null,missing:false};
+}
+
 export function validFamilyTypes(types){
   if(!Array.isArray(types)||types.length>500)return false;
   const seen=new Set();

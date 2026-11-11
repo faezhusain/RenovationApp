@@ -8,7 +8,9 @@ export function withNewSections(value) {
 }
 
 export function validNewSections(value) {
-  return validFamilyTypes(value.familyTypes ?? []) && validFamilyEntries(value.familyFinances ?? []) && Array.isArray(value.receipts) && value.receipts.every(r =>
+  const links=value.project?.renovationBalanceLinks;
+  const validLinks=links===undefined||(links&&typeof links==='object'&&!Array.isArray(links)&&Object.keys(links).every(k=>['Daddy','Mummy'].includes(k)&&typeof links[k]==='string'&&links[k].length<=160));
+  return validLinks && validFamilyTypes(value.familyTypes ?? []) && validFamilyEntries(value.familyFinances ?? []) && Array.isArray(value.receipts) && value.receipts.every(r =>
     r && typeof r.id === 'string' && typeof r.title === 'string' && typeof r.filename === 'string' && typeof r.date === 'string' && typeof r.notes === 'string' &&
     RECEIPT_TYPES.includes(r.type) && Number.isInteger(r.size) && r.size > 0 && r.size <= MAX_RECEIPT_BYTES &&
     typeof r.data === 'string' && r.data.length <= Math.ceil(MAX_RECEIPT_BYTES / 3) * 4 && /^[A-Za-z0-9+/]*={0,2}$/.test(r.data) && validEncodedFile(r) &&

@@ -38,3 +38,8 @@ test('custom family types are saved and invalid type data is rejected',async()=>
   const read=await (await handler(request('GET'))).json();assert.deepEqual(read.familyTypes,data.familyTypes);assert.deepEqual(read.familyFinances,data.familyFinances);
   data.familyTypes=[{section:'unknown',name:'Gift'}];assert.equal((await handler(request('PUT',data,{'x-project-version':saved.headers.get('x-project-version')}))).status,400);
 });
+test('budget balance links are retained and malformed links are rejected',async()=>{
+  const {handler}=fixture(),data=project('Family');data.familyFinances=[{id:'balance',person:'Daddy',kind:'renovation',name:'Remaining',amount:1000,due:'',notes:''}];data.project.renovationBalanceLinks={Daddy:'balance'};
+  const saved=await handler(request('PUT',data,{'x-project-version':'new'}));assert.equal(saved.status,204);assert.deepEqual((await (await handler(request('GET'))).json()).project.renovationBalanceLinks,{Daddy:'balance'});
+  data.project.renovationBalanceLinks={Daddy:123};assert.equal((await handler(request('PUT',data,{'x-project-version':saved.headers.get('x-project-version')}))).status,400);
+});

@@ -1,7 +1,7 @@
 import { totals, progress, parseMoney, dateLocal, paidForCost, isActivePayment, plannedBudgetProgress } from './calculations.js';
 import { withNewSections, validNewSections, fileMatchesType, MAX_RECEIPT_BYTES, RECEIPT_TYPES } from './records.js';
 import { sortRows } from './sorting.js';
-import { FAMILY_PEOPLE, FAMILY_KINDS, familySummary, validFamilyEntries, prepareFamilyImport } from './family-finances.js';
+import { FAMILY_PEOPLE, FAMILY_KINDS, familySummary, validFamilyEntries, prepareFamilyImport, renovationBalanceLink } from './family-finances.js';
 
 const KEY = 'renovation-companion-v1';
 const categories = ['Renovation','Fixtures & Fittings','Furniture','Appliances','Other items','Construction','Carpentry','Electrical & plumbing','Kitchen','Fixtures & fittings','Furnishing','Professional fees','Moving','Other'];
@@ -113,6 +113,11 @@ function inlineCell(cost,field,value,display){
 function updateAmount(cost,amount){
   if(cost.amount!==amount){cost.amountHistory=[...(cost.amountHistory||[]),{previous:cost.amount,amount,at:new Date().toISOString()}];cost.amount=amount;}
 }
+function familyBudgetMetric(person){
+  const {candidates,entry,missing}=renovationBalanceLink(state.familyFinances,state.project.renovationBalanceLinks,person);
+  const choice=entry?.id||'',ordered=sortRows(candidates,x=>x.name);
+  return `<div class="metric budget-family-metric"><div class="label">${person}’s renovation balance</div><div class="value">${entry?money(entry.amount):'Not linked'}</div><label>Family finances entry<select data-family-balance-link="${person}" aria-label="${person} renovation balance entry"><option value=""${selected(choice,'')}>${missing?'Linked entry unavailable':'Choose an entry'}</option>${ordered.map(x=>`<option value="${esc(x.id)}"${selected(choice,x.id)}>${esc(x.name)}</option>`).join('')}</select></label></div>`;
+}
 function budgetView(){
   const t=totals(state), allCosts=state.costs.filter(c=>!c.voided);
   const paidFor=c=>paidForCost(state,c.id);
@@ -139,6 +144,7 @@ function budgetView(){
   return `${heading('Make every decision count','Your renovation budget','Plan costs, record payments and stay in control. Imported amounts remain estimates unless acceptance was recorded.','<div class="links"><button class="button light" data-action="payment">＋ Record payment</button><button class="button" data-action="cost">＋ Add cost</button></div>')}
   <label class="budget-search" for="budget-search"><span>Search budget items</span><input id="budget-search" type="search" placeholder="Search items, areas or categories" value="${esc(budgetSearch)}" autocomplete="off"></label>
   <details class="budget-panel budget-summary"${!window.matchMedia?.('(max-width:900px)')?.matches||budgetSummaryOpen?' open':''}><summary>Budget overview <span>View totals and forecast</span></summary><div class="small muted">Project totals · all phases</div><div class="metrics">${[['Target',t.target],['Estimated forecast',t.forecast],['Agreed costs',t.agreed],['Still to pay',t.outstanding]].map(([label,value])=>`<div class="metric"><div class="label">${label}</div><div class="value">${money(value)}</div></div>`).join('')}</div>
+  <div class="budget-family-totals metrics">${familyBudgetMetric('Daddy')}${familyBudgetMetric('Mummy')}<div class="metric budget-paid-metric"><div class="label">Already paid</div><div class="value">${money(t.paid)}</div><p class="hint">Payments and corrections, less refunds</p></div></div><p class="budget-family-explanation">Family balances come from the selected entries in Family finances. Update those entries as balances change; payments here do not reduce them automatically.</p>
   <div class="notice ${t.unallocated<0||t.forecastHeadroom<0?'warning':''}">Unallocated after agreed costs and reserve: <strong>${money(t.unallocated)}</strong> · Forecast headroom after reserve: <strong>${money(t.forecastHeadroom)}</strong>. Savings are a separate snapshot.</div></details>
   <div class="section-title budget-results-heading"><h2>Costs & commitments</h2><span class="small muted">${costs.length} of ${allCosts.length} items</span></div>
   <details class="budget-panel budget-filter-panel"${!window.matchMedia?.('(max-width:900px)')?.matches||budgetFiltersOpen?' open':''}><summary>Filters <span>${activeFilters?`${activeFilters} active`:'Phase, category, area and paid'}</span></summary><div class="budget-controls"><label for="phase-filter">Phase</label><select id="phase-filter"><option value="all"${selected(phaseFilter,'all')}>All phases</option>${phaseOptions.map(phase=>`<option value="${esc(phase)}"${selected(phaseFilter,phase)}>Phase ${esc(phase)}</option>`).join('')}<option value="unassigned"${selected(phaseFilter,'unassigned')}>No phase</option></select><label for="category-filter">Category</label><select id="category-filter"><option value=""${selected(categoryFilter,'')}>All categories</option>${categoryOptions.map(category=>`<option value="v:${esc(category)}"${selected(categoryFilter,`v:${category}`)}>${esc(category)}</option>`).join('')}</select><label for="area-filter">Area</label><select id="area-filter"><option value=""${selected(areaFilter,'')}>All areas</option>${areaOptions.map(area=>`<option value="v:${esc(area)}"${selected(areaFilter,`v:${area}`)}>${esc(area)}</option>`).join('')}<option value="unassigned"${selected(areaFilter,'unassigned')}>No area</option></select><label for="paid-filter">Paid</label><select id="paid-filter" aria-describedby="paid-filter-help"><option value="all"${selected(paidFilter,'all')}>All payments</option><option value="paid"${selected(paidFilter,'paid')}>Paid</option><option value="not-paid"${selected(paidFilter,'not-paid')}>Not paid</option></select><button type="button" class="button light sm" data-reset-filters>Reset filters</button><span id="paid-filter-help" class="small muted">Paid includes any nonzero amount, including partial payments.</span><span class="small muted">Click a cell to edit. Changes save when selected or when you leave the field. Press Esc to cancel.</span></div></details>
@@ -352,6 +358,14 @@ function searchBudget(input){
 app.addEventListener('input',e=>{if(e.target.id==='task-search'){const start=e.target.selectionStart;filterText=e.target.value;render();const input=document.querySelector('#task-search');input.focus();input.setSelectionRange(start,start);}else if(e.target.id==='budget-search'&&!e.isComposing)searchBudget(e.target);});
 app.addEventListener('compositionend',e=>{if(e.target.id==='budget-search')searchBudget(e.target);});
 function searchFamily(input){if(inlineEdit){input.value=familySearch;notify('Correct the current field or press Esc to cancel.');return;}familySearch=input.value;const list=document.querySelector('#family-list');if(list)list.innerHTML=familyItems();}
+app.addEventListener('change',e=>{
+  const person=e.target.dataset?.familyBalanceLink;if(!['Daddy','Mummy'].includes(person))return;
+  if(inlineEdit){e.target.value=renovationBalanceLink(state.familyFinances,state.project.renovationBalanceLinks,person).entry?.id||'';notify('Correct the current field or press Esc to cancel.');return;}
+  const id=e.target.value,{candidates}=renovationBalanceLink(state.familyFinances,state.project.renovationBalanceLinks,person);
+  if(id&&!candidates.some(x=>x.id===id)){notify('Choose an available family entry.');render();return;}
+  state.project.renovationBalanceLinks={...state.project.renovationBalanceLinks,[person]:id};
+  if(commit('Balance link saved'))document.querySelector(`[data-family-balance-link="${person}"]`)?.focus();
+});
 app.addEventListener('input',e=>{if(e.target.id==='family-search'&&!e.isComposing)searchFamily(e.target);});
 app.addEventListener('compositionend',e=>{if(e.target.id==='family-search')searchFamily(e.target);});
 app.addEventListener('click',e=>{

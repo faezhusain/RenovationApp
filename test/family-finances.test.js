@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {familySummary,validFamilyEntries,validFamilyTypes,prepareFamilyImport} from '../public/family-finances.js';
+import {familySummary,validFamilyEntries,validFamilyTypes,prepareFamilyImport,renovationBalanceLink} from '../public/family-finances.js';
 import {prepareMigration} from '../public/migration.js';
 
 const row=(id,person,kind,amount)=>({id,person,kind,name:id,amount,due:'',notes:''});
@@ -34,4 +34,12 @@ test('custom types survive backups and follow their selected incoming or outgoin
   const old={version:1,project:{name:'Example',target:0,reserve:0,savings:0},costs:[],payments:[],quotes:[],tasks:[]};
   const restored=prepareMigration(JSON.stringify({...old,familyFinances:[incoming,outgoing],familyTypes}),false).project;
   assert.deepEqual(restored.familyTypes,familyTypes);assert.deepEqual(restored.familyFinances,[incoming,outgoing]);
+});
+test('renovation balances link to the correct person and never guess an ambiguous or missing entry',()=>{
+  const daddy={...row('d','Daddy','renovation',3993200),name:'Balance renovation expenses'},mummy={...row('m','Mummy','renovation',4500000),name:'Renovation budget per person'};
+  let entries=[daddy,mummy];assert.equal(renovationBalanceLink(entries,undefined,'Daddy').entry,daddy);assert.equal(renovationBalanceLink(entries,undefined,'Mummy').entry,null);
+  assert.equal(renovationBalanceLink(entries,{Mummy:'m'},'Mummy').entry,mummy);assert.equal(renovationBalanceLink(entries,{Mummy:'d'},'Mummy').missing,true);
+  assert.equal(renovationBalanceLink([...entries,{...daddy,id:'duplicate'}],undefined,'Daddy').entry,null);
+  assert.equal(renovationBalanceLink(entries,{Daddy:''},'Daddy').entry,null);
+  entries=[{...daddy,voided:true},mummy];assert.equal(renovationBalanceLink(entries,{Daddy:'d'},'Daddy').missing,true);
 });
