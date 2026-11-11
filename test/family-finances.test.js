@@ -38,6 +38,7 @@ test('custom types survive backups and follow their selected incoming or outgoin
 test('renovation balances link to the correct person and never guess an ambiguous or missing entry',()=>{
   const daddy={...row('d','Daddy','renovation',3993200),name:'Balance renovation expenses'},mummy={...row('m','Mummy','renovation',4500000),name:'Renovation budget per person'};
   let entries=[daddy,mummy];assert.equal(renovationBalanceLink(entries,undefined,'Daddy').entry,daddy);assert.equal(renovationBalanceLink(entries,undefined,'Mummy').entry,null);
+  const mummyBalance={...mummy,id:'mb',name:'Balance renovation expenses'};assert.equal(renovationBalanceLink([...entries,mummyBalance],undefined,'Mummy').entry,mummyBalance);assert.equal(renovationBalanceLink([...entries,mummyBalance],undefined,'Daddy').entry,daddy);
   assert.equal(renovationBalanceLink(entries,{Mummy:'m'},'Mummy').entry,mummy);assert.equal(renovationBalanceLink(entries,{Mummy:'d'},'Mummy').missing,true);
   assert.equal(renovationBalanceLink([...entries,{...daddy,id:'duplicate'}],undefined,'Daddy').entry,null);
   assert.equal(renovationBalanceLink(entries,{Daddy:''},'Daddy').entry,null);
