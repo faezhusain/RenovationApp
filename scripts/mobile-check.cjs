@@ -148,6 +148,30 @@ const actions={checklist:['task'],budget:['cost','payment'],family:['family-entr
     }
     for(const width of [390,1280]){
       const data=structuredClone(project);
+      data.paymentCorrections=[{id:'bulk-adjust',costId:'c1',amount:1000,createdAt:'2026-01-01T00:00:00Z'}];
+      data.receipts=[{id:'bulk-receipt',title:'Example receipt',filename:'receipt.png',date:'2026-01-01',notes:'',type:'image/png',size:8,data:'iVBORw0KGgo=',costId:'c1',paymentId:'p1'}];
+      const ctx=await browser.newContext({viewport:{width,height:844}});
+      await ctx.addInitScript(data=>{window.renovationCloud={mode:'cloud',email:'example@example.com',status:{state:'ready'},initialProject:data,session:{stage(value){if(window.failBulkSave)throw Error('Simulated save failure');window.lastStaged=structuredClone(value)},hasDraft(){return false},retry(){}},identity:{logout:async()=>{}}};},data);
+      const page=await ctx.newPage();let approve=false,lastMessage='';page.on('dialog',d=>{lastMessage=d.message();return approve?d.accept():d.dismiss();});
+      const nav=async id=>{if(width>900)await page.locator(`.sidebar [data-nav="${id}"]`).click();else await page.locator(`.mobile-nav [data-nav="${id}"]`).click();};
+      await page.goto(`http://127.0.0.1:${server.address().port}/`);await nav('budget');
+      await page.getByRole('button',{name:'Select items'}).click();assert.ok(await page.getByRole('button',{name:'Delete selected'}).isDisabled());
+      await page.getByRole('checkbox',{name:'Select A long sample appliance name'}).check();assert.match(await page.locator('.budget-selection-count').textContent(),/1 selected/);
+      await page.getByRole('checkbox',{name:'Select A long sample appliance name'}).uncheck();assert.match(await page.locator('.budget-selection-count').textContent(),/0 selected/);await page.getByRole('checkbox',{name:'Select A long sample appliance name'}).check();await page.getByRole('button',{name:'Clear selection'}).click();assert.match(await page.locator('.budget-selection-count').textContent(),/0 selected/);await page.getByRole('checkbox',{name:'Select A long sample appliance name'}).check();
+      if(process.env.MOBILE_SCREENSHOTS&&width===390){await page.locator('.budget-list').screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,'budget-selection-mobile.png')});await page.locator('.budget-selection-toolbar').screenshot({path:path.join(process.env.MOBILE_SCREENSHOTS,'budget-selection-toolbar.png')});}
+      await page.getByRole('searchbox',{name:'Search budget items'}).fill('Kitchen');assert.match(await page.locator('.budget-selection-count').textContent(),/1 selected.*1 hidden/);
+      await page.getByRole('button',{name:'Select all displayed'}).click();assert.match(await page.locator('.budget-selection-count').textContent(),/2 selected.*1 hidden/);
+      await page.getByRole('button',{name:'Delete selected'}).click();assert.match(lastMessage,/2 selected costs \(1 hidden by filters\)/);assert.equal(await page.locator('.budget-table tbody tr').count(),1);
+      approve=true;await page.evaluate(()=>window.failBulkSave=true);await page.getByRole('button',{name:'Delete selected'}).click();assert.match(lastMessage,/change was not saved/);assert.match(await page.locator('.budget-selection-count').textContent(),/2 selected/);assert.equal(await page.locator('.budget-table tbody tr').count(),1);await page.evaluate(()=>window.failBulkSave=false);
+      await page.getByRole('button',{name:'Delete selected'}).click();let snapshot=await page.evaluate(()=>window.lastStaged);assert.ok(snapshot.costs.every(x=>x.voided));assert.equal(snapshot.payments.length,1);assert.equal(snapshot.paymentCorrections.length,1);assert.equal(snapshot.receipts.length,1);assert.equal(snapshot.quotes.length,1);
+      const {prepareMigration}=await import('../public/migration.js');prepareMigration(JSON.stringify(snapshot),true);
+      await nav('home');assert.match(await page.locator('.metric').filter({hasText:'Already paid'}).textContent(),/RM\s*0/);
+      await nav('more');await page.locator('.list-row').filter({hasText:'A long sample appliance name'}).getByRole('button',{name:'Restore'}).click();await page.locator('.list-row').filter({hasText:'Kitchen cabinet'}).getByRole('button',{name:'Restore'}).click();snapshot=await page.evaluate(()=>window.lastStaged);assert.ok(snapshot.costs.every(x=>!x.voided));prepareMigration(JSON.stringify(snapshot),true);
+      await nav('home');assert.match(await page.locator('.metric').filter({hasText:'Already paid'}).textContent(),/RM\s*210/);
+      await ctx.close();console.log(`Bulk cost selection, deletion, and restoration passed at ${width}px`);
+    }
+    for(const width of [390,1280]){
+      const data=structuredClone(project);
       data.payments.push({id:'refund',costId:'c1',type:'refund',originalId:'p1',date:'2026-01-02',amount:5000,reference:'Example refund'});
       data.paymentCorrections=[{id:'adjust',costId:'c1',amount:1000,createdAt:'2026-01-01T00:00:00Z'}];
       data.quotes.push({id:'accepted',costId:'c1',supplier:'Accepted supplier',amount:123450,details:'Accepted quotation',accepted:true});
